@@ -48,18 +48,20 @@ abstract class SqlModel extends \Illuminate\Database\Eloquent\Model
 }
 ```
 
-`App\Models\Base\Model` is a runtime alias to one of them, registered in `bootstrap/models.php` and wired through composer `autoload.files`:
+`App\Models\Base\Model` is a runtime alias to one of them, registered in a dedicated `DatastoreServiceProvider::register()`, listed **first** in `bootstrap/providers.php`:
 
 ```php
 class_alias(
-    env('DB_CONNECTION') === 'mongodb' ? MongoModel::class : SqlModel::class,
+    config('database.default') === 'mongodb' ? MongoModel::class : SqlModel::class,
     'App\Models\Base\Model'
 );
 ```
 
-**Why `autoload.files` and not a service provider:** the alias must exist before any model class loads, and Laravel resolves models during boot.
+**Why a service provider and not composer `autoload.files`:** an earlier draft of this design used `autoload.files`, which does not work. `env()` returns `null` at autoload time because Dotenv runs during `LoadEnvironmentVariables`, part of bootstrap and therefore after the autoloader. Laravel's bootstrap order is `LoadEnvironmentVariables` → `LoadConfiguration` → `RegisterProviders` → `BootProviders`, so by `register()` the config is loaded and `config()` is safe.
 
-**Why `env()` and not `config()`:** this runs before config is loaded. Consequence: the driver is chosen by environment only, and cannot be switched via cached config. This is the one genuinely awkward corner of the approach and is accepted deliberately.
+**Why this is early enough:** PHP autoloads a class on first *use*, not on constant resolution. `Setting::class` in `AppServiceProvider` resolves to a string without loading the class, and no model is instantiated during provider registration. Models first load when routes and controllers run, well after boot.
+
+Consequence: the driver is selected by normal config, and cached config works. The provider must be registered before `AppServiceProvider`.
 
 `User` extends `MongoDB\Laravel\Auth\User` rather than the plain model, so it needs its own pair aliased to `App\Models\Base\AuthUser`.
 
@@ -88,6 +90,8 @@ database/migrations/mongodb/  index-creation migrations
 `AppServiceProvider::boot()` registers exactly one driver path via `loadMigrationsFrom()`. Per-file driver guards were rejected — 33 guards rot.
 
 Moving to `mongodb/`: `create_suppressed_emails_index`, `create_email_logs_indexes`, `add_search_indexes_to_vault_files`, `add_unique_index_to_vault_folders`, `rename_resend_id_to_provider_message_id_in_email_logs`. The vestigial stubs are replaced outright by real schema.
+
+**Many-to-many needs a pivot table.** `User::roles()` and `Role::users()` both call `belongsToMany`. laravel-mongodb implements this by storing ID arrays on both documents (`role_ids`, `user_ids`) with no pivot collection; SQL expects a `role_user` pivot table with `user_id` and `role_id` ULID columns and a unique composite index. The relationship code itself needs no change — each driver's `belongsToMany` does the right thing — but the pivot migration is mandatory on SQL, and `->sync()` in `User::syncRoles()` works identically on both.
 
 **References carry no foreign-key constraints.** `author_id`, `user_id`, `folder_id`, `parent_id`, `role_id`, `owner_id`, `subject_id`, `context_id` become indexed ULID columns only. Mongo enforces no referential integrity today; adding FKs would make deletes that succeed on Mongo throw on Postgres. Behavioural parity between drivers outranks database purity here, and it sidesteps migration ordering.
 
@@ -138,6 +142,7 @@ A `HasPortableId` concern normalizes `_id` to `getKeyName()`. Call sites:
 | `UserController.php:116`, `:134` | `whereIn('_id', $ids)` → `whereKey($ids)` |
 | `VaultFolderController.php:39`, `:56` | `pluck('_id')` → `pluck('id')` |
 | `VaultFolderController.php:110` | `where('_id','!=',$folder->id)` → `whereKeyNot($folder->id)` |
+| `Role.php:35` | `$role->users()->pluck('_id')` → `pluck((new User)->getKeyName())` |
 | `types/index.d.ts:8` | update comment |
 
 `VaultController.php:263`'s `_id` comment documents a driver serialization workaround in `chunk()`, not ID semantics. No change needed.
