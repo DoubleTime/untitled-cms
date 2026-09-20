@@ -5,7 +5,6 @@
     "description": "AI-native CMS built on Laravel 13 + MongoDB with a React + Inertia.js admin SPA. Serves every page as Markdown to AI agents via llms.txt and Accept: text/markdown.",
     "keywords": [
         "laravel",
-        "mongodb",
         "cms",
         "inertia",
         "inertiajs",
@@ -25,7 +24,6 @@
     },
     "require": {
         "php": "^8.4",
-        "ext-mongodb": "^2.4",
         "ezyang/htmlpurifier": "^4.19",
         "guzzlehttp/guzzle": "^7.10",
         "inertiajs/inertia-laravel": "^3.0",
@@ -36,7 +34,6 @@
         "laravel/socialite": "^5.24",
         "laravel/tinker": "^3.0",
         "league/html-to-markdown": "^5.1",
-        "mongodb/laravel-mongodb": "^5.7",
         "resend/resend-laravel": "^1.0",
         "tightenco/ziggy": "^2.0"
     },

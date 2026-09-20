@@ -5,16 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\VaultFile;
 use App\Models\VaultFolder;
 use App\Services\VaultService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use MongoDB\Driver\Exception\BulkWriteException;
 
 class VaultFolderController extends Controller
 {
-    private const DUPLICATE_KEY_ERROR = 11000;
-
     private const DUPLICATE_NAME_MESSAGE = 'A folder with this name already exists in this directory.';
 
     protected $vaultService;
@@ -221,11 +219,7 @@ class VaultFolderController extends Controller
             $write();
 
             return null;
-        } catch (BulkWriteException $e) {
-            if ($e->getCode() !== self::DUPLICATE_KEY_ERROR) {
-                throw $e;
-            }
-
+        } catch (UniqueConstraintViolationException $e) {
             return response()->json(['error' => $message], 422);
         }
     }
