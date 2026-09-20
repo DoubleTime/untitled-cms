@@ -124,7 +124,7 @@ export default function Home({ banners, recentPages }: Props) {
                             Content that <span className="text-primary">speaks</span> for itself.
                         </h1>
                         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
-                            An AI-native CMS built on Laravel, React, and MongoDB — ready for teams, agents, and the open web.
+                            An AI-native CMS built on Laravel, React, and PostgreSQL — ready for teams, agents, and the open web.
                         </p>
                         <div className="flex gap-4 justify-center">
                             <Button asChild size="lg" className="h-12 px-8">
@@ -141,7 +141,7 @@ export default function Home({ banners, recentPages }: Props) {
             {/* Features Strip */}
             <div className="border-b bg-muted/20">
                 <div className="container max-w-7xl mx-auto px-4 py-6 flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-primary inline-block" />Laravel 13 + MongoDB</span>
+                    <span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-primary inline-block" />Laravel 13 + PostgreSQL</span>
                     <span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-primary inline-block" />React + Inertia.js SPA</span>
                     <span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-primary inline-block" />Multi-Provider AI Hub</span>
                     <span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-primary inline-block" />Role-Based Access Control</span>

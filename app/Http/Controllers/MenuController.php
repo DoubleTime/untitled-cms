@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Menu;
 use App\Services\ActivityLogger;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
@@ -74,7 +75,11 @@ class MenuController extends Controller
             ...$this->menuItemRules(),
         ]);
 
-        $menu = Menu::create($validated);
+        try {
+            $menu = Menu::create($validated);
+        } catch (UniqueConstraintViolationException $e) {
+            return back()->withErrors(['slug' => 'The slug has already been taken.'])->withInput();
+        }
 
         ActivityLogger::log('create', "Created menu: {$menu->name}", $menu);
         Cache::forget('active_menus');
@@ -110,7 +115,11 @@ class MenuController extends Controller
             'is_active' => 'boolean',
         ]);
 
-        $menu->update($validated);
+        try {
+            $menu->update($validated);
+        } catch (UniqueConstraintViolationException $e) {
+            return back()->withErrors(['slug' => 'The slug has already been taken.'])->withInput();
+        }
 
         ActivityLogger::log('update', "Updated menu: {$menu->name}", $menu);
         Cache::forget('active_menus');

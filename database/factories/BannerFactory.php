@@ -19,14 +19,16 @@ class BannerFactory extends Factory
     {
         return [
             'title' => fake()->sentence(3),
-            'content' => fake()->sentence(10),
+            'slug' => fake()->unique()->slug(),
+            'slides' => null,
+            'image_url' => [fake()->imageUrl()],
+            'alt_text' => fake()->sentence(3),
             'link_url' => fake()->url(),
-            'link_text' => 'Click Here',
+            'description' => fake()->sentence(10),
+            'order' => 0,
             'is_active' => true,
-            'background_color' => fake()->hexColor(),
-            'text_color' => '#ffffff',
-            'start_date' => now()->subDay(),
-            'end_date' => now()->addDays(30),
+            'start_at' => now()->subDay(),
+            'end_at' => now()->addDays(30),
         ];
     }
 }

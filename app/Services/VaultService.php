@@ -353,7 +353,7 @@ class VaultService
     {
         try {
             VaultAuditLog::create([
-                'user_id' => Auth::id() ?? 'system',
+                'user_id' => Auth::id() ?? null,
                 'event' => $event,
                 'resource_type' => class_basename($resource),
                 'resource_id' => $resource->id,

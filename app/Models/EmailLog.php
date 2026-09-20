@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasUlidKey;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class EmailLog extends Model
 {
-    use HasUlidKey;
+    use HasFactory, HasUlidKey;
 
     /**
      * The attributes that are mass assignable.

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -17,9 +18,18 @@ return new class extends Migration
             $table->ulid('owner_id')->nullable();
             $table->timestamps();
             $table->softDeletes();
-            $table->unique(['parent_id', 'path_slug']);   // was add_unique_index_to_vault_folders
             $table->index('owner_id');
         });
+
+        // Partial unique index instead of a plain unique constraint on (parent_id, path_slug):
+        //   - excludes soft-deleted rows, so a trashed folder never blocks reuse of its name
+        //   - uses COALESCE(parent_id, '') so root-level folders (parent_id IS NULL) are also
+        //     enforced uniquely — PostgreSQL treats NULLs as distinct in a plain unique index,
+        //     which would otherwise let unlimited root folders share a name.
+        // Works identically on PostgreSQL and SQLite (both support expression + partial indexes).
+        DB::statement(
+            'CREATE UNIQUE INDEX vault_folders_parent_path_unique ON vault_folders (COALESCE(parent_id, \'\'), path_slug) WHERE deleted_at IS NULL'
+        );
 
         Schema::create('vault_files', function (Blueprint $table) {
             $table->ulid('id')->primary();
@@ -64,6 +74,7 @@ return new class extends Migration
 
     public function down(): void
     {
+        DB::statement('DROP INDEX IF EXISTS vault_folders_parent_path_unique');
         Schema::dropIfExists('vault_folder_permissions');
         Schema::dropIfExists('vault_files');
         Schema::dropIfExists('vault_folders');

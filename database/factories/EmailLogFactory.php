@@ -19,13 +19,13 @@ class EmailLogFactory extends Factory
     public function definition(): array
     {
         return [
-            'message_id' => '<'.Str::random(24).'@example.com>',
-            'to' => fake()->safeEmail(),
+            'provider_message_id' => '<'.Str::random(24).'@example.com>',
+            'recipient' => fake()->safeEmail(),
             'subject' => fake()->sentence(4),
+            'mailable' => 'App\\Mail\\TestMail',
             'status' => 'delivered',
-            'opens' => fake()->numberBetween(0, 5),
-            'clicks' => fake()->numberBetween(0, 2),
-            'provider' => 'mailgun',
+            'sent_at' => now(),
+            'delivered_at' => now(),
         ];
     }
 }

@@ -2,6 +2,8 @@
 
 namespace Tests\Unit;
 
+use App\Models\Banner;
+use App\Models\EmailLog;
 use App\Models\Page;
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -35,7 +37,7 @@ class SchemaTest extends TestCase
 
         $this->assertIsString($page->getKey());
         $this->assertSame(26, strlen($page->getKey()));
-        $this->assertFalse($page->incrementing);
+        $this->assertFalse($page->getIncrementing());
     }
 
     public function test_role_permissions_round_trip_as_an_array(): void
@@ -49,5 +51,25 @@ class SchemaTest extends TestCase
         $this->assertIsArray($fresh->permissions);
         $this->assertTrue($fresh->hasPermission('pages.edit'));
         $this->assertFalse($fresh->hasPermission('pages.delete'));
+    }
+
+    public function test_banner_factory_persists_with_real_columns(): void
+    {
+        $banner = Banner::factory()->create();
+
+        $this->assertDatabaseHas('banners', [
+            'id' => $banner->getKey(),
+            'title' => $banner->title,
+        ]);
+    }
+
+    public function test_email_log_factory_persists_with_real_columns(): void
+    {
+        $log = EmailLog::factory()->create();
+
+        $this->assertDatabaseHas('email_logs', [
+            'id' => $log->getKey(),
+            'recipient' => $log->recipient,
+        ]);
     }
 }

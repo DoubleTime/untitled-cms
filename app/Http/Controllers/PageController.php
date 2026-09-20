@@ -142,13 +142,16 @@ class PageController extends Controller
 
         // Check for slug change and create redirect
         if ($page->slug !== $validated['slug']) {
-            // Create a redirect from the old slug to the new slug
-            PageRedirect::create([
-                'from_path' => $page->slug,
-                'to_path' => $validated['slug'],
-                'type' => 301,
-                'active' => true,
-            ]);
+            // Create a redirect from the old slug to the new slug (from_path is unique, so
+            // reusing a former slug must update the existing redirect rather than insert a duplicate)
+            PageRedirect::updateOrCreate(
+                ['from_path' => $page->slug],
+                [
+                    'to_path' => $validated['slug'],
+                    'type' => 301,
+                    'active' => true,
+                ]
+            );
 
             // Update any existing redirects that pointed to the old slug to point to the new slug
             // (Avoid daisy-chaining)
