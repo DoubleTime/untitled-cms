@@ -13,7 +13,7 @@ return new class extends Migration
             $table->uuid('uuid')->unique();
             $table->ulid('parent_id')->nullable();
             $table->string('name');
-            $table->string('path_slug');
+            $table->string('path_slug')->nullable();
             $table->ulid('owner_id')->nullable();
             $table->timestamps();
             $table->softDeletes();

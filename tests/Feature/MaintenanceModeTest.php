@@ -6,10 +6,13 @@ use App\Models\Role;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\SettingsService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class MaintenanceModeTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();

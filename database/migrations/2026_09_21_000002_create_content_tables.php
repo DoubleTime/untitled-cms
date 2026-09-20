@@ -31,7 +31,7 @@ return new class extends Migration
         Schema::create('banners', function (Blueprint $table) {
             $table->ulid('id')->primary();
             $table->string('title');
-            $table->string('slug')->unique();
+            $table->string('slug')->nullable()->unique();
             $table->json('slides')->nullable();
             $table->json('image_url')->nullable();
             $table->string('alt_text')->nullable();

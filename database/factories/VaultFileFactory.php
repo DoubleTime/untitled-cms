@@ -20,9 +20,8 @@ class VaultFileFactory extends Factory
             'original_name' => fake()->word().'.jpg',
             'storage_path' => 'vault/'.fake()->uuid().'.jpg',
             'mime_type' => 'image/jpeg',
-            'size' => fake()->numberBetween(10000, 5000000),
+            'size_bytes' => fake()->numberBetween(10000, 5000000),
             'uploaded_by' => User::factory(),
-            'disk' => 'upload',
             'is_public' => true,
         ];
     }

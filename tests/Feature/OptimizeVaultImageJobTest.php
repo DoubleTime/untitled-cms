@@ -4,17 +4,19 @@ namespace Tests\Feature;
 
 use App\Jobs\OptimizeVaultImageJob;
 use App\Models\VaultFile;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class OptimizeVaultImageJobTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
         Storage::fake('public');
-        VaultFile::truncate();
     }
 
     public function test_png_is_converted_to_webp(): void

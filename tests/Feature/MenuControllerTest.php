@@ -19,9 +19,6 @@ class MenuControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Menu::truncate();
-        User::truncate();
-        Role::truncate();
 
         $adminRole = Role::factory()->create([
             'slug' => 'admin',

@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\VaultFile;
-use App\Models\VaultFolder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia;
@@ -13,13 +13,13 @@ use Tests\TestCase;
 
 class VaultUploadTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
         Storage::fake('vault');
         Storage::fake('sandbox');
-        VaultFile::truncate();
-        VaultFolder::truncate();
     }
 
     private function createAdminUser(): User
@@ -51,7 +51,7 @@ class VaultUploadTest extends TestCase
             'original_name' => 'test.jpg',
             'mime_type' => 'image/jpeg',
             'uploaded_by' => $user->id,
-        ], 'mongodb');
+        ]);
 
         $uploadedFile = VaultFile::first();
         $this->assertTrue(
@@ -72,7 +72,7 @@ class VaultUploadTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonFragment(['error' => 'Potential malicious double extension detected in filename: exploit.php.jpg']);
 
-        $this->assertDatabaseMissing('vault_files', ['original_name' => 'exploit.php.jpg'], 'mongodb');
+        $this->assertDatabaseMissing('vault_files', ['original_name' => 'exploit.php.jpg']);
     }
 
     public function test_validates_mime_type_mismatch(): void
@@ -87,7 +87,7 @@ class VaultUploadTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonFragment(['error' => 'Security violation: Image sanitization failed. The file is corrupt or contains invalid data.']);
 
-        $this->assertDatabaseMissing('vault_files', ['original_name' => 'malicious.jpg'], 'mongodb');
+        $this->assertDatabaseMissing('vault_files', ['original_name' => 'malicious.jpg']);
     }
 
     public function test_unauthorized_user_cannot_upload(): void
