@@ -5,7 +5,7 @@ export interface Role {
 }
 
 export interface User {
-    id: string; // MongoDB ObjectId serialised as a 24-char hex string
+    id: string; // ULID (26-char, lexically sortable)
     name: string;
     email: string;
     email_verified_at?: string;

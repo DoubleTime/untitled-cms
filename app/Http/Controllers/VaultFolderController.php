@@ -36,7 +36,7 @@ class VaultFolderController extends Controller
 
         $folders = $query->orderBy('name')->get();
 
-        $folderIds = $folders->pluck('_id')->map(fn ($id) => (string) $id)->toArray();
+        $folderIds = $folders->pluck('id')->map(fn ($id) => (string) $id)->toArray();
 
         // MongoDB aggregation for file counts and sizes
         $rawStats = VaultFile::raw(function ($collection) use ($folderIds) {
@@ -53,7 +53,7 @@ class VaultFolderController extends Controller
         $filesStats = collect($rawStats)->keyBy('_id');
 
         $folders->transform(function (VaultFolder $folder) use ($filesStats) {
-            $stat = $filesStats->get((string) $folder->_id);
+            $stat = $filesStats->get((string) $folder->getKey());
 
             $folder->files_count = $stat ? (int) $stat['files_count'] : 0;
             $folder->files_size = $stat ? (int) $stat['files_size'] : 0;
@@ -107,7 +107,7 @@ class VaultFolderController extends Controller
         // Prevent folder name collisions within the same parent
         $exists = VaultFolder::where('parent_id', $folder->parent_id)
             ->where('name', $request->name)
-            ->where('_id', '!=', $folder->id)
+            ->whereKeyNot($folder->getKey())
             ->exists();
         if ($exists) {
             return response()->json(['error' => self::DUPLICATE_NAME_MESSAGE], 422);
@@ -140,7 +140,7 @@ class VaultFolderController extends Controller
         // Prevent folder name collisions within the target parent
         $exists = VaultFolder::where('parent_id', $request->parent_id)
             ->where('name', $folder->name)
-            ->where('_id', '!=', $folder->id)
+            ->whereKeyNot($folder->getKey())
             ->exists();
         if ($exists) {
             return response()->json(['error' => $collisionMessage], 422);

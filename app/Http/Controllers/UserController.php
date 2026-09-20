@@ -95,7 +95,7 @@ class UserController extends Controller
 
         $request->validate(['user_ids' => 'required|array']);
 
-        $count = User::whereIn('_id', $request->user_ids)->update(['is_active' => true]);
+        $count = User::whereKey($request->user_ids)->update(['is_active' => true]);
 
         $this->bustStatsCache();
 
@@ -113,7 +113,7 @@ class UserController extends Controller
 
         // Prevent deactivating self
         $ids = array_filter($request->user_ids, fn ($id) => $id !== auth()->id());
-        $count = User::whereIn('_id', $ids)->update(['is_active' => false]);
+        $count = User::whereKey($ids)->update(['is_active' => false]);
 
         $this->bustStatsCache();
 
@@ -131,7 +131,7 @@ class UserController extends Controller
 
         // Prevent deleting self
         $ids = array_filter($request->user_ids, fn ($id) => $id !== auth()->id());
-        $count = User::whereIn('_id', $ids)->delete();
+        $count = User::whereKey($ids)->delete();
 
         $this->bustStatsCache();
 

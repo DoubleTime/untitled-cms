@@ -30,7 +30,7 @@ class Role extends Model
         // Bust permission cache for all role members whenever permissions are saved,
         // regardless of which code path triggered the save (controller, seeder, etc.).
         static::saved(function (Role $role) {
-            foreach ($role->users()->pluck('_id') as $userId) {
+            foreach ($role->users()->pluck('users.id') as $userId) {
                 Cache::forget('user_permissions_'.$userId);
                 Cache::forget('user_backend_access_'.$userId);
             }
