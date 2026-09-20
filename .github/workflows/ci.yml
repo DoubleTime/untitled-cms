@@ -16,10 +16,18 @@ jobs:
         php: ['8.4']
 
     services:
-      mongodb:
-        image: mongo:7
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: unysis_marketplace_test
         ports:
-          - 27017:27017
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +36,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: mbstring, xml, curl, zip, gd, fileinfo, intl, mongodb
+          extensions: mbstring, xml, curl, zip, gd, fileinfo, intl, pdo_pgsql, pdo_sqlite
           coverage: none
 
       - name: Cache Composer packages
@@ -46,8 +54,21 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
-      - name: Run PHPUnit
-        run: composer run test
+      - name: Tests (SQLite)
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+        run: php artisan test
+
+      - name: Tests (PostgreSQL)
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: unysis_marketplace_test
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres
+        run: php artisan test
 
   lint:
     name: PHP Code Style (Pint)
