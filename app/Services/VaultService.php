@@ -232,7 +232,7 @@ class VaultService
         });
 
         // 2. Relocate physical files
-        $childrenSlugs = VaultFolder::where('path_slug', 'like', $folder->path_slug.'/%')->pluck('path_slug', '_id')->toArray();
+        $childrenSlugs = VaultFolder::where('path_slug', 'like', $folder->path_slug.'/%')->pluck('path_slug', 'id')->toArray();
         $folderIds = array_merge(array_keys($childrenSlugs), [$folder->id]);
 
         // Pre-build a folder_id → path_slug map

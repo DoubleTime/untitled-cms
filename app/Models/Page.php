@@ -55,13 +55,13 @@ class Page extends Model
      * Fetches all taken variants in one query to avoid N+1 loops.
      *
      * @param  string  $base  The desired base slug (already Str::slug'd).
-     * @param  string|null  $excludeId  MongoDB _id to exclude (for updates).
+     * @param  string|null  $excludeId  ULID to exclude (for updates).
      */
     public static function uniqueSlug(string $base, ?string $excludeId = null): string
     {
         $query = static::withTrashed()->where('slug', 'like', $base.'%');
         if ($excludeId) {
-            $query->where('_id', '!=', $excludeId);
+            $query->whereKeyNot($excludeId);
         }
         $taken = $query->pluck('slug')->flip()->all();
 

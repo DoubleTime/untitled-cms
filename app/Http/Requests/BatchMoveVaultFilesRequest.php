@@ -21,7 +21,7 @@ class BatchMoveVaultFilesRequest extends FormRequest
             // Cap bounds the per-item exists queries and per-file policy checks
             'uuids' => 'required|array|max:500',
             'uuids.*' => ['string', Rule::exists(VaultFile::class, 'uuid')],
-            'folder_id' => ['nullable', 'string', Rule::exists(VaultFolder::class, '_id')],
+            'folder_id' => ['nullable', 'string', Rule::exists(VaultFolder::class, 'id')],
         ];
     }
 }
