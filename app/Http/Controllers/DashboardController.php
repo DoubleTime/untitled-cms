@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\EmailLog;
+use App\Support\DateBucket;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use MongoDB\BSON\UTCDateTime;
 
 class DashboardController extends Controller
 {
@@ -16,24 +17,19 @@ class DashboardController extends Controller
     {
         $startDate = Carbon::today()->subDays(6);
 
-        // Optimized single-trip aggregation
-        /** @var \Traversable $statsCursor */
-        $statsCursor = EmailLog::raw(function ($collection) use ($startDate) {
-            return $collection->aggregate([
-                ['$match' => ['created_at' => ['$gte' => new UTCDateTime($startDate->getTimestampMs())]]],
-                ['$group' => [
-                    '_id' => ['$dateToString' => ['format' => '%Y-%m-%d', 'date' => '$created_at']],
-                    'sent' => ['$sum' => 1],
-                    'delivered' => ['$sum' => ['$cond' => [['$ne' => ['$delivered_at', null]], 1, 0]]],
-                ]],
-                ['$sort' => ['_id' => 1]],
-            ]);
-        });
+        $bucket = DateBucket::expression('created_at');
 
-        $stats = iterator_to_array($statsCursor);
-
-        // Map into the format expected by Recharts
-        $statsMap = collect($stats)->keyBy('_id');
+        $statsMap = EmailLog::query()
+            ->where('created_at', '>=', $startDate)
+            ->groupBy(DB::raw($bucket))
+            ->orderBy(DB::raw($bucket))
+            ->get([
+                DB::raw("{$bucket} as day"),
+                DB::raw('count(*) as sent'),
+                // count() ignores NULLs, reproducing Mongo's $cond on $ne: null
+                DB::raw('count(delivered_at) as delivered'),
+            ])
+            ->keyBy('day');
 
         $emailHealth = collect(range(6, 0))->map(function ($i) use ($statsMap) {
             $date = Carbon::today()->subDays($i);

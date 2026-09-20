@@ -8,6 +8,7 @@ use App\Services\VaultService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use MongoDB\Driver\Exception\BulkWriteException;
 
 class VaultFolderController extends Controller
@@ -38,25 +39,21 @@ class VaultFolderController extends Controller
 
         $folderIds = $folders->pluck('id')->map(fn ($id) => (string) $id)->toArray();
 
-        // MongoDB aggregation for file counts and sizes
-        $rawStats = VaultFile::raw(function ($collection) use ($folderIds) {
-            return $collection->aggregate([
-                ['$match' => ['folder_id' => ['$in' => $folderIds], 'deleted_at' => null]],
-                ['$group' => [
-                    '_id' => '$folder_id',
-                    'files_count' => ['$sum' => 1],
-                    'files_size' => ['$sum' => '$size_bytes'],
-                ]],
-            ]);
-        });
-
-        $filesStats = collect($rawStats)->keyBy('_id');
+        $filesStats = VaultFile::query()
+            ->whereIn('folder_id', $folderIds)
+            ->groupBy('folder_id')
+            ->get([
+                'folder_id',
+                DB::raw('count(*) as files_count'),
+                DB::raw('coalesce(sum(size_bytes), 0) as files_size'),
+            ])
+            ->keyBy('folder_id');
 
         $folders->transform(function (VaultFolder $folder) use ($filesStats) {
             $stat = $filesStats->get((string) $folder->getKey());
 
-            $folder->files_count = $stat ? (int) $stat['files_count'] : 0;
-            $folder->files_size = $stat ? (int) $stat['files_size'] : 0;
+            $folder->files_count = $stat ? (int) $stat->files_count : 0;
+            $folder->files_size = $stat ? (int) $stat->files_size : 0;
             // Mark restricted folders so frontend can grey them out (Phase 1.2)
             $folder->is_restricted = $folder->permissions->isNotEmpty();
             $folder->makeHidden('permissions');
