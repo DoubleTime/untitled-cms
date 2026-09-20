@@ -47,7 +47,7 @@ class CheckMaintenanceMode
     public function handle(Request $request, Closure $next): Response
     {
         // Safely read the setting. Use filter_var to strictly cast booleans
-        // since MongoDB may store these as strings ("1", "true") or actual booleans.
+        // since settings values may be stored as strings ("1", "true") or actual booleans.
         $rawValue = $this->settingsService->get('maintenance_mode', false);
         $isMaintenanceMode = filter_var($rawValue, FILTER_VALIDATE_BOOLEAN);
 

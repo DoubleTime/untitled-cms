@@ -2,14 +2,14 @@
 
 > Technology choices and key design decisions.
 
-Last updated: 2026-09-13
+Last updated: 2026-09-21
 
 ## Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Backend | Laravel 13, PHP **8.4+** |
-| Database | MongoDB (`mongodb/laravel-mongodb`) — see [architecture/mongodb](mongodb.md) |
+| Database | PostgreSQL (production), SQLite in-memory (tests) — see [architecture/datastore](datastore.md) |
 | Frontend | React 19 + TypeScript, Inertia.js |
 | Rich text | TinyMCE 7 (admin pages/banners) |
 | Styling | Tailwind CSS v4, Shadcn/Radix UI |
@@ -26,9 +26,11 @@ keeps controllers readable.
 pass through a sequence of discrete pipe classes. Each pipe does one thing and passes
 a typed DTO to the next. Easy to add, remove, or reorder stages. See [modules/vault](../modules/vault.md).
 
-**MongoDB for everything.** No relational SQL in production. The `mongodb/laravel-mongodb`
-package provides Eloquent-compatible models. Tests override to SQLite in-memory.
-See [architecture/mongodb](mongodb.md).
+**PostgreSQL, plain Eloquent.** All 16 models are plain Eloquent models with ULID
+primary keys (`App\Models\Concerns\HasUlidKey`). Production runs PostgreSQL; tests run
+SQLite in-memory. MongoDB was removed after the migration documented in
+[architecture/datastore](datastore.md); see [architecture/mongodb](mongodb.md) for the
+historical record of why it was chosen and why it was dropped.
 
 **AI config at runtime.** AI provider keys and settings are stored in the database and
 managed via the admin UI, not in `.env` or config files. See [modules/ai-hub](../modules/ai-hub.md).
@@ -47,7 +49,8 @@ Markdown+YAML frontmatter when `Accept: text/markdown` is sent. This is the
 
 - [architecture/request-flow](request-flow.md) — how a request moves through the system
 - [architecture/middleware](middleware.md) — full middleware stack
-- [architecture/mongodb](mongodb.md) — MongoDB decision and test gap
+- [architecture/datastore](datastore.md) — PostgreSQL migration, ULID keys, schema layout
+- [architecture/mongodb](mongodb.md) — historical MongoDB decision and test gap
 - [modules/services](../modules/services.md) — service layer details
 - [frontend/ui-stack](../frontend/ui-stack.md) — React/Inertia frontend
-- [database/collections](../database/collections.md) — MongoDB model conventions
+- [database/collections](../database/collections.md) — model and table conventions

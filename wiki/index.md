@@ -16,14 +16,15 @@ Content catalog for the untitled-cms wiki. Updated on every ingest.
 | [architecture/stack](architecture/stack.md) | Technology choices and key design decisions |
 | [architecture/request-flow](architecture/request-flow.md) | How a request moves from browser to response |
 | [architecture/middleware](architecture/middleware.md) | Web middleware stack and what each layer does |
-| [architecture/testing](architecture/testing.md) | Test setup, SQLite override, known gotchas |
-| [architecture/mongodb](architecture/mongodb.md) | Why MongoDB, test dual-path, re-evaluate criteria |
+| [architecture/testing](architecture/testing.md) | Test setup, SQLite (tests) vs PostgreSQL (prod), known gotchas |
+| [architecture/mongodb](architecture/mongodb.md) | Historical: why MongoDB was chosen, and why it was abandoned |
+| [architecture/datastore](architecture/datastore.md) | PostgreSQL migration: ULID keys, schema layout, no FKs, `role_user`, `DateBucket` |
 
 ## Database
 
 | Page | Summary |
 |------|---------|
-| [database/collections](database/collections.md) | MongoDB models, collections, and conventions |
+| [database/collections](database/collections.md) | Eloquent models, tables, and conventions |
 
 ## Frontend
 

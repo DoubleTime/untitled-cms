@@ -18,7 +18,7 @@ class ContentSeeder extends Seeder
         Banner::updateOrCreate(['title' => 'Welcome to Our CMS'], [
             'image_url' => 'https://images.unsplash.com/photo-1499750310159-5b600aafb1d6?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80',
             'alt_text' => 'Workspace desk with laptop',
-            'description' => 'Built with Laravel 13, MongoDB, and Inertia.js',
+            'description' => 'Built with Laravel 13, PostgreSQL, and Inertia.js',
             'link_url' => '/about-us',
             'order' => 1,
             'is_active' => true,
@@ -35,12 +35,12 @@ class ContentSeeder extends Seeder
         // Sample Pages — keyed by slug to prevent duplicates on re-run
         Page::updateOrCreate(['slug' => 'getting-started'], [
             'title' => 'Getting Started with Untitled CMS',
-            'content' => '<h2>Introduction</h2><p>Untitled CMS is an AI-native content management system built on <strong>Laravel 13</strong>, <strong>MongoDB</strong>, and a <strong>React + Inertia.js</strong> admin SPA. It is designed to be lightweight yet powerful, with a flexible document model perfect for dynamic content structures.</p><h3>Key Features</h3><ul><li>Role-Based Access Control (RBAC) with 34 granular permissions</li><li>Rich Text Editing with CKEditor 5</li><li>The Vault — hierarchical media manager with a secure 7-stage upload pipeline</li><li>Multi-provider AI Hub (OpenAI, Anthropic, Gemini, Groq, Mistral, Deepseek, Ollama)</li><li>Markdown-for-Agents: every page responds with <code>Accept: text/markdown</code></li><li><code>/llms.txt</code> and <code>/llms-full.txt</code> for AI discoverability</li></ul><p>Explore the admin panel to see how easy it is to manage your digital presence.</p>',
+            'content' => '<h2>Introduction</h2><p>Untitled CMS is an AI-native content management system built on <strong>Laravel 13</strong>, <strong>PostgreSQL</strong>, and a <strong>React + Inertia.js</strong> admin SPA. It is designed to be lightweight yet powerful, with a flexible schema perfect for dynamic content structures.</p><h3>Key Features</h3><ul><li>Role-Based Access Control (RBAC) with 34 granular permissions</li><li>Rich Text Editing with CKEditor 5</li><li>The Vault — hierarchical media manager with a secure 7-stage upload pipeline</li><li>Multi-provider AI Hub (OpenAI, Anthropic, Gemini, Groq, Mistral, Deepseek, Ollama)</li><li>Markdown-for-Agents: every page responds with <code>Accept: text/markdown</code></li><li><code>/llms.txt</code> and <code>/llms-full.txt</code> for AI discoverability</li></ul><p>Explore the admin panel to see how easy it is to manage your digital presence.</p>',
             'status' => 'published',
             'author_id' => $authorId,
             'published_at' => now(),
             'seo_title' => 'Getting Started with Untitled CMS',
-            'seo_description' => 'Learn how to set up and use Untitled CMS — an AI-native CMS built on Laravel 13, MongoDB, and React.',
+            'seo_description' => 'Learn how to set up and use Untitled CMS — an AI-native CMS built on Laravel 13, PostgreSQL, and React.',
         ]);
 
         Page::updateOrCreate(['slug' => 'power-of-inertia'], [
