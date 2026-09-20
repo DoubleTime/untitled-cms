@@ -19,7 +19,7 @@ class UploadVaultFileRequest extends FormRequest
         return [
             'files' => 'required|array|max:20',
             'files.*' => 'file|max:'.config('vault.max_upload_kb', 51200),
-            'folder_id' => 'nullable|string|exists:'.VaultFolder::class.',_id',
+            'folder_id' => 'nullable|string|exists:'.VaultFolder::class.',id',
             'is_public' => 'sometimes|boolean',
         ];
     }

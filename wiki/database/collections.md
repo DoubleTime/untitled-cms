@@ -1,8 +1,8 @@
 # Collections
 
-> MongoDB models, collections, and conventions.
+> Eloquent models, tables, and conventions (PostgreSQL production, SQLite tests).
 
-Last updated: 2026-09-13 (vault_folders unique index, menus item shape)
+Last updated: 2026-09-21 (PostgreSQL migration: ULID keys, tables, no FKs)
 
 ## Menu item shape
 
@@ -12,29 +12,28 @@ silently discarded on save. `Menus/Edit.tsx`, `MenuSeeder` and `PublicLayout` al
 
 ## Overview
 
-MongoDB is required for production **and for tests**. `phpunit.xml` switches only the default
-connection to SQLite, and models pin `mongodb`, so tests use the MongoDB server from `.env`
-(see [architecture/testing](../architecture/testing.md)). The `mongodb/laravel-mongodb` package provides
-Eloquent-compatible model syntax.
+PostgreSQL is the production database; tests run SQLite in-memory (see
+[architecture/testing](../architecture/testing.md)). All models are plain Eloquent —
+no custom connection or collection name is needed. See
+[architecture/datastore](../architecture/datastore.md) for the full migration writeup.
 
 ## Model conventions
 
-Every MongoDB model must declare:
+Models are plain Eloquent (`Illuminate\Database\Eloquent\Model`; `User` extends
+`Illuminate\Foundation\Auth\User`). Primary keys are ULID strings via the shared
+`App\Models\Concerns\HasUlidKey` trait, not auto-increment integers — do not assume
+integer IDs when writing new queries or factories.
 
-```php
-protected $connection = 'mongodb';
-protected $collection = 'collection_name';
-```
+Reference columns (`author_id`, `user_id`, `folder_id`, etc.) are indexed but carry
+**no foreign-key constraints** — deliberate, see [architecture/datastore](../architecture/datastore.md#no-foreign-key-constraints).
 
-Use `mongodb/laravel-mongodb` relationship methods (not standard Eloquent ones) where
-the implementation differs. Check the package docs when setting up new relationships.
+## Tables
 
-## Collections
-
-| Collection | Purpose |
+| Table | Purpose |
 |-----------|---------|
 | `users` | User accounts |
 | `roles` | Role definitions with permission arrays |
+| `role_user` | Pivot table for the users↔roles many-to-many; replaces MongoDB's ID-array-on-both-documents approach. See [architecture/datastore](../architecture/datastore.md#role_user-pivot) |
 | `pages` | CMS content pages |
 | `banners` | Banner/announcement records |
 | `vault_files` | Uploaded file metadata |
@@ -51,19 +50,22 @@ the implementation differs. Check the package docs when setting up new relations
 ## .env configuration
 
 ```env
-DB_CONNECTION=mongodb
+DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
-DB_PORT=27017
+DB_PORT=5432
 DB_DATABASE=untitled_cms
+DB_USERNAME=postgres
+DB_PASSWORD=
 ```
 
 ## Settings access
 
-Don't query the `settings` collection directly. Use `SettingsService` which
+Don't query the `settings` table directly. Use `SettingsService` which
 adds a caching layer. See [modules/services](../modules/services.md).
 
 ## See also
 
+- [architecture/datastore](../architecture/datastore.md) — PostgreSQL migration, ULID keys, schema layout, no FKs
 - [modules/services](../modules/services.md) — SettingsService caching layer
 - [modules/vault](../modules/vault.md) — how vault_files records are created
-- [architecture/testing](../architecture/testing.md) — SQLite override in tests
+- [architecture/testing](../architecture/testing.md) — SQLite test setup, PostgreSQL production

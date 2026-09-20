@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Banner;
 use App\Services\ActivityLogger;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -69,7 +70,11 @@ class BannerController extends Controller
             'end_at' => 'nullable|date|after_or_equal:start_at',
         ]);
 
-        $banner = Banner::create($validated);
+        try {
+            $banner = Banner::create($validated);
+        } catch (UniqueConstraintViolationException $e) {
+            return back()->withErrors(['slug' => 'The slug has already been taken.'])->withInput();
+        }
 
         ActivityLogger::log('create', "Created banner: {$banner->title}", $banner);
 
@@ -121,7 +126,11 @@ class BannerController extends Controller
             'end_at' => 'nullable|date|after_or_equal:start_at',
         ]);
 
-        $banner->update($validated);
+        try {
+            $banner->update($validated);
+        } catch (UniqueConstraintViolationException $e) {
+            return back()->withErrors(['slug' => 'The slug has already been taken.'])->withInput();
+        }
 
         ActivityLogger::log('update', "Updated banner: {$banner->title}", $banner);
 

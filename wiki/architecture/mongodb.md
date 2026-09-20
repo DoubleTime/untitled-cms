@@ -1,13 +1,21 @@
-# MongoDB decision
+# MongoDB decision (superseded)
 
-> Why production uses MongoDB, how tests differ, and when to re-evaluate.
+> Historical record: why MongoDB was originally chosen, and why it was abandoned. Current state is [architecture/datastore](datastore.md) — PostgreSQL.
 
-Last updated: 2026-07-12
+Last updated: 2026-09-21
 
-## Decision
+## Superseded
 
-**Production database is MongoDB** via `mongodb/laravel-mongodb`. All app models set
-`protected $connection = 'mongodb'` and a collection name. There is no dual-write to SQL
+**This page is historical.** The application has moved to PostgreSQL; see
+[architecture/datastore](datastore.md) for the current state and the reasoning behind
+the move. This page is kept because the trade-offs below explain *why* the original
+choice was made, and the "Test gap" section below is exactly what ended up forcing the
+migration — see that page for how it played out.
+
+## Original decision (no longer in effect)
+
+Production database was MongoDB via `mongodb/laravel-mongodb`. All app models set
+`protected $connection = 'mongodb'` and a collection name. There was no dual-write to SQL
 in production.
 
 ## Why MongoDB
@@ -34,19 +42,18 @@ SQLite tests will not catch:
 Mitigation: keep feature tests for authz and workflows; add targeted Mongo integration
 tests only when a bug is Mongo-specific; document indexes in [database/collections](../database/collections.md).
 
-## Re-evaluate if
+## What actually triggered the migration
 
-- Multi-tenant reporting needs heavy relational joins
-- Compliance requires SQL-only ops tooling
-- Team no longer has Mongo operational capacity
-- A clear migration ROI appears (not planned in the hardening epic)
-
-## Non-decision
-
-This page does **not** authorize migrating off MongoDB. It records intent and gaps only.
+The "Test gap" above was not theoretical: `phpunit.xml` set `DB_DATABASE=:memory:`
+while every model pinned the `mongodb` connection, and `config/database.php` fed that
+`:memory:` value to the Mongo driver, which rejected it outright. **All 97 tests
+errored at setup** — the suite had never actually run. That, not a scaling or
+compliance need, is what drove the move to PostgreSQL. See
+[architecture/datastore](datastore.md) for the full account.
 
 ## See also
 
+- [architecture/datastore](datastore.md) — current datastore (PostgreSQL) and what changed
 - [architecture/stack](stack.md) — stack summary
-- [architecture/testing](testing.md) — SQLite override and gotchas
-- [database/collections](../database/collections.md) — models and collections
+- [architecture/testing](testing.md) — current SQLite/PostgreSQL test setup
+- [database/collections](../database/collections.md) — current models and tables

@@ -18,8 +18,6 @@ class AiChatTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        User::truncate();
-        Role::truncate();
 
         $role = Role::factory()->create([
             'slug' => 'admin',

@@ -2,19 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasUlidKey;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use MongoDB\Laravel\Eloquent\Model;
 
 class Page extends Model
 {
-    use HasFactory, SoftDeletes;
-
-    protected $connection = 'mongodb';
-
-    protected $collection = 'pages';
+    use HasFactory, HasUlidKey, SoftDeletes;
 
     protected $fillable = [
         'title',
@@ -58,13 +55,13 @@ class Page extends Model
      * Fetches all taken variants in one query to avoid N+1 loops.
      *
      * @param  string  $base  The desired base slug (already Str::slug'd).
-     * @param  string|null  $excludeId  MongoDB _id to exclude (for updates).
+     * @param  string|null  $excludeId  ULID to exclude (for updates).
      */
     public static function uniqueSlug(string $base, ?string $excludeId = null): string
     {
         $query = static::withTrashed()->where('slug', 'like', $base.'%');
         if ($excludeId) {
-            $query->where('_id', '!=', $excludeId);
+            $query->whereKeyNot($excludeId);
         }
         $taken = $query->pluck('slug')->flip()->all();
 

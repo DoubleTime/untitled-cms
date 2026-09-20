@@ -20,7 +20,7 @@ class SaveAiImageRequest extends FormRequest
         return [
             'image' => 'required|string',
             'filename' => 'nullable|string|max:255',
-            'folder_id' => 'nullable|string|exists:\App\Models\VaultFolder,_id',
+            'folder_id' => 'nullable|string|exists:\App\Models\VaultFolder,id',
         ];
     }
 

@@ -16,10 +16,8 @@ class RegistrationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        User::truncate();
         Cache::flush();
-        // Role model hits MongoDB which uses a separate DB from SQLite test fixtures.
-        // Seed the user role explicitly so it exists in whichever MongoDB DB the test env uses.
+        // Seed the default "user" role so registration can attach it.
         Role::updateOrCreate(['slug' => 'user'], ['name' => 'user', 'permissions' => ['pages.view', 'media.view']]);
     }
 

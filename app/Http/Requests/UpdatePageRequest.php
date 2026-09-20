@@ -23,7 +23,6 @@ class UpdatePageRequest extends FormRequest
             'content' => 'nullable|string',
             'status' => 'required|in:draft,published',
             'template' => 'nullable|string',
-            'parent_id' => 'nullable|exists:pages,_id',
             'seo_title' => 'nullable|string|max:255',
             'seo_description' => 'nullable|string|max:255',
         ];

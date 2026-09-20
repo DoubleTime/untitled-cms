@@ -4,7 +4,7 @@ Single source of truth for all AI coding agents (Codex, Claude Code, Gemini CLI,
 
 ## Project Overview
 
-**Untitled CMS** is an AI-native Content Management System built on Laravel 13 with MongoDB and a React + Inertia.js admin SPA. Public pages are served as HTML by default and as Markdown+YAML frontmatter when requested with `Accept: text/markdown` (for AI crawlers/agents).
+**Untitled CMS** is an AI-native Content Management System built on Laravel 13 with PostgreSQL and a React + Inertia.js admin SPA. Public pages are served as HTML by default and as Markdown+YAML frontmatter when requested with `Accept: text/markdown` (for AI crawlers/agents).
 
 ## Project Structure & Module Organization
 
@@ -24,14 +24,14 @@ Backend code lives in `app/`, routes in `routes/`, database migrations and seede
 ## Architecture
 
 ### Stack
-- **Backend:** Laravel 13, PHP 8.4, MongoDB (`mongodb/laravel-mongodb`)
+- **Backend:** Laravel 13, PHP 8.4, PostgreSQL (plain Eloquent, ULID primary keys)
 - **Frontend:** React 19 + TypeScript, Inertia.js (props-based routing, no client-side router), Tailwind CSS v4, Shadcn/Radix UI
 - **Build:** Vite 8 (frontend build runs `tsc && vite build`)
 - **Auth:** Laravel Sanctum + Sessions, Laravel Socialite (Google, GitHub — toggled via Settings UI)
 
 ### Request Flow
 ```
-Browser → Laravel Route → Middleware Stack → Controller → Service/Model → MongoDB
+Browser → Laravel Route → Middleware Stack → Controller → Service/Model → PostgreSQL
                                                        ↓
                                               Inertia::render($page, $props) → React Page Component
 ```
@@ -78,7 +78,7 @@ Registered in `bootstrap/app.php`:
 
 1. `HandleInertiaRequests` — shares props to all pages (see below)
 2. `AddLinkHeadersForPreloadedAssets` — preload `Link` headers for performance
-3. `CheckRedirects` — database-driven URL redirects (hits MongoDB on every request — keep `redirects` collection indexed)
+3. `CheckRedirects` — database-driven URL redirects (hits the database on every request — keep the `redirects` table indexed)
 4. `CheckMaintenanceMode` — custom maintenance mode; reads from `SettingsService` (cache lag possible)
 
 Admin routes additionally apply: `auth`, `verified`, `RequireAdminAccess`.
@@ -129,18 +129,20 @@ Inertia form pattern: use `useForm()` from `@inertiajs/react` — handles loadin
 
 ## Database
 
-MongoDB is required for production and for tests.
+PostgreSQL is required for production; tests run on SQLite in-memory (see Testing Guidelines below).
 
 ```env
-DB_CONNECTION=mongodb
+DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
-DB_PORT=27017
+DB_PORT=5432
 DB_DATABASE=untitled_cms
+DB_USERNAME=postgres
+DB_PASSWORD=
 ```
 
-All models set `protected $connection = 'mongodb'` and `protected $collection = 'name'`. Use `mongodb/laravel-mongodb` relationship methods — standard Eloquent relationship internals differ.
+All models are plain Eloquent (`Illuminate\Database\Eloquent\Model`; `User` extends `Illuminate\Foundation\Auth\User`) with ULID string primary keys via the shared `App\Models\Concerns\HasUlidKey` trait. The schema lives in `database/migrations/`, grouped into five files by responsibility (core, content, vault, logs, framework). Reference columns (`author_id`, `user_id`, `folder_id`, etc.) carry indexes but no foreign-key constraints — deliberate, since the app was written against MongoDB's lack of referential integrity. See [architecture/datastore](wiki/architecture/datastore.md) for the full writeup.
 
-Key collections: `users`, `roles`, `pages`, `banners`, `vault_files`, `vault_folders`, `activity_logs`, `ai_hubs`, `chat_sessions`, `menus`, `settings`, `redirects`, `email_logs`, `suppressed_emails`.
+Key tables: `users`, `roles`, `role_user`, `pages`, `banners`, `vault_files`, `vault_folders`, `activity_logs`, `ai_hubs`, `chat_sessions`, `menus`, `settings`, `redirects`, `email_logs`, `suppressed_emails`.
 
 ## Coding Style & Naming Conventions
 
@@ -150,7 +152,8 @@ Follow `.editorconfig`: UTF-8, LF endings, 4-space indentation, and no trailing 
 
 PHPUnit is configured in `phpunit.xml`; feature tests live in `tests/Feature` and unit tests in `tests/Unit`. Use descriptive names like `VaultFolderTest.php` or `AuthenticationTest.php`. Prefer feature tests for controller, policy, and workflow coverage. See `wiki/architecture/testing.md` for details.
 
-- `phpunit.xml` sets `DB_CONNECTION=sqlite`, but that only changes the default connection. Models pin `mongodb`, so tests need a reachable MongoDB configured via `.env` (`DB_HOST`/`DB_PORT`; CI uses 27017).
+- `phpunit.xml` sets `DB_CONNECTION=sqlite` and `DB_DATABASE=:memory:`; the whole suite runs against SQLite in-memory, no external database service required. Production runs PostgreSQL. CI runs the suite on both SQLite and a real PostgreSQL 17 service to catch dialect differences (see `app/Support/DateBucket.php` for the one unavoidable one).
+- Before the PostgreSQL migration, this suite could not actually run: every model pinned the `mongodb` connection, so the SQLite override only changed the default connection, and `config/database.php` fed the literal `:memory:` string to the Mongo driver, which rejected it — all 97 tests errored at setup. This is fixed now; the suite passes 97/97 (245 assertions) on both dialects.
 - `tests/TestCase.php` creates the `public/hot` file in `setUp` and removes it in `tearDown` to bypass `ViteManifestNotFoundException`.
 
 ## LLM Wiki & Knowledge Base Management
@@ -181,4 +184,4 @@ Recent commits use conventional-style prefixes with optional scopes, for example
 
 ## Security & Configuration Tips
 
-Do not commit secrets or environment-specific values. Local setup expects `.env`, MongoDB credentials, and a valid app key. If you change upload, auth, or AI-related code, call out any new permissions, queue jobs, or environment variables in the PR notes.
+Do not commit secrets or environment-specific values. Local setup expects `.env`, PostgreSQL credentials, and a valid app key. If you change upload, auth, or AI-related code, call out any new permissions, queue jobs, or environment variables in the PR notes.

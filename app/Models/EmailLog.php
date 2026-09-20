@@ -2,13 +2,13 @@
 
 namespace App\Models;
 
-use MongoDB\Laravel\Eloquent\Model;
+use App\Models\Concerns\HasUlidKey;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class EmailLog extends Model
 {
-    protected $connection = 'mongodb';
-
-    protected $collection = 'email_logs';
+    use HasFactory, HasUlidKey;
 
     /**
      * The attributes that are mass assignable.

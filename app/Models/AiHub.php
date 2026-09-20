@@ -2,13 +2,12 @@
 
 namespace App\Models;
 
-use MongoDB\Laravel\Eloquent\Model;
+use App\Models\Concerns\HasUlidKey;
+use Illuminate\Database\Eloquent\Model;
 
 class AiHub extends Model
 {
-    protected $connection = 'mongodb';
-
-    protected $collection = 'ai_hubs';
+    use HasUlidKey;
 
     protected $fillable = [
         'name',

@@ -18,10 +18,6 @@ class PageControllerTest extends TestCase
     {
         parent::setUp();
 
-        User::truncate();
-        Role::truncate();
-        Page::truncate();
-
         $role = Role::factory()->create([
             'slug' => 'admin',
             'permissions' => ['pages.view', 'pages.create', 'pages.edit', 'pages.delete'],

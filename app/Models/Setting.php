@@ -2,14 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasUlidKey;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
-use MongoDB\Laravel\Eloquent\Model;
 
 class Setting extends Model
 {
-    protected $connection = 'mongodb';
-
-    protected $collection = 'settings';
+    use HasUlidKey;
 
     protected $fillable = [
         'key',

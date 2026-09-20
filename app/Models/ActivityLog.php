@@ -2,16 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasUlidKey;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class ActivityLog extends Model
 {
-    use HasFactory;
-
-    protected $connection = 'mongodb';
-
-    protected $collection = 'activity_logs';
+    use HasFactory, HasUlidKey;
 
     protected $fillable = [
         'user_id',

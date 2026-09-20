@@ -4,6 +4,36 @@ Append-only record of wiki operations. Format: `## [YYYY-MM-DD] <op> | <title>`
 
 ---
 
+## [2026-09-21] update | PostgreSQL migration documented (Task 8)
+- Documents the completed move off MongoDB: all 16 models are now plain Eloquent
+  (`HasUlidKey` trait for ULID string primary keys), a full relational schema was
+  authored from scratch in `database/migrations/` (5 files, grouped by responsibility:
+  core, content, vault, logs, framework), and `mongodb/laravel-mongodb` is gone.
+- Added [architecture/datastore](architecture/datastore.md): ULID keys and the
+  frontend `id: string` contract, schema file layout, why reference columns carry
+  indexes but no FK constraints, why `role_user` exists (SQL needs a pivot where
+  MongoDB used ID arrays), and `app/Support/DateBucket.php` as the one place the
+  SQLite-vs-PostgreSQL dialect difference is allowed to live.
+- Recorded an honest correction: before this migration the test suite could not run
+  at all. `phpunit.xml` set `DB_DATABASE=:memory:` while every model pinned the
+  `mongodb` connection; `config/database.php` fed that literal string to the Mongo
+  driver, which rejected it, so all 97 tests errored at setup. `architecture/testing.md`
+  had claimed "SQLite override" for months without that claim ever being exercised.
+  Now: SQLite in-memory for tests, real PostgreSQL in CI and production, 97/97 tests
+  (245 assertions) green on both.
+- Marked [architecture/mongodb](architecture/mongodb.md) superseded/historical rather
+  than deleting it — it still explains the original trade-offs and the test gap that
+  triggered the move.
+- Updated [architecture/stack](architecture/stack.md), [architecture/testing](architecture/testing.md),
+  [database/collections](database/collections.md) (renamed conceptually from "MongoDB
+  collections" to "Eloquent tables"; added `role_user`, `.env` block, no-FK note),
+  and `wiki/index.md`.
+- Also updated (outside the wiki, same commit): `AGENTS.md` (the canonical source
+  `CLAUDE.md` forwards to — stack/database/testing sections), `.env.example` (removed
+  a dead MongoDB Atlas URI comment block), `composer.json` description, seeded page
+  copy in `database/seeders/ContentSeeder.php`, and a stale MongoDB-rationale comment
+  in `app/Http/Middleware/CheckMaintenanceMode.php`.
+
 ## [2026-09-13] fix | Page save, editor sync and Vault size label
 - Found during browser smoke tests of the upgrade; all three predate it.
 - `PageController` store/update: empty editor content arrives as `null` (ConvertEmptyStringsToNull) and crashed `clean()`.

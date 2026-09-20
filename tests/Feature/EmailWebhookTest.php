@@ -9,19 +9,17 @@ use App\Models\User;
 use App\Services\EmailWebhooks\Contracts\WebhookProvider;
 use App\Services\EmailWebhooks\MailgunWebhookProvider;
 use App\Services\EmailWebhooks\SendGridWebhookProvider;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class EmailWebhookTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
-        // MongoDB models are not covered by RefreshDatabase (SQL-only).
-        // Truncate explicitly so each run starts clean.
-        EmailLog::truncate();
-        SuppressedEmail::truncate();
-        User::truncate();
     }
 
     // ─── Signature verification ───────────────────────────────────────────────
@@ -161,7 +159,7 @@ class EmailWebhookTest extends TestCase
         $job = new ProcessEmailWebhook([]);
         app()->call([$job, 'handle'], ['provider' => app(WebhookProvider::class)]);
 
-        $this->assertNull($user->fresh()->bounce_hard);
+        $this->assertFalse($user->fresh()->bounce_hard);
     }
 
     public function test_sendgrid_batch_payload_processes_all_events(): void

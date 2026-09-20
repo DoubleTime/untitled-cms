@@ -19,9 +19,6 @@ class BannerControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Banner::truncate();
-        User::truncate();
-        Role::truncate();
 
         $adminRole = Role::factory()->create([
             'slug' => 'admin',

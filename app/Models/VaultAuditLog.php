@@ -2,13 +2,12 @@
 
 namespace App\Models;
 
-use MongoDB\Laravel\Eloquent\Model;
+use App\Models\Concerns\HasUlidKey;
+use Illuminate\Database\Eloquent\Model;
 
 class VaultAuditLog extends Model
 {
-    protected $connection = 'mongodb';
-
-    protected $collection = 'vault_audit_logs';
+    use HasUlidKey;
 
     protected $fillable = [
         'user_id',

@@ -2,17 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasUlidKey;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use MongoDB\Laravel\Eloquent\Model;
 
 class Banner extends Model
 {
-    use HasFactory, SoftDeletes;
-
-    protected $connection = 'mongodb';
-
-    protected $collection = 'banners';
+    use HasFactory, HasUlidKey, SoftDeletes;
 
     protected $fillable = [
         'title',

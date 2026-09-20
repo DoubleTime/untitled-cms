@@ -6,15 +6,17 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\VaultFolder;
 use App\Models\VaultFolderPermission;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class VaultFolderTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
-        VaultFolder::truncate();
     }
 
     private function createAdminUser(): User
@@ -42,7 +44,7 @@ class VaultFolderTest extends TestCase
             ->postJson(route('admin.vault.folders.restore', $trashed->id))
             ->assertStatus(422);
 
-        $this->assertTrue(VaultFolder::onlyTrashed()->where('_id', $trashed->id)->exists());
+        $this->assertTrue(VaultFolder::onlyTrashed()->whereKey($trashed->id)->exists());
     }
 
     public function test_folder_force_destroy_requires_global_media_delete(): void
@@ -62,7 +64,7 @@ class VaultFolderTest extends TestCase
             ->deleteJson(route('admin.vault.folders.force_destroy', $folder->id))
             ->assertForbidden();
 
-        $this->assertTrue(VaultFolder::withTrashed()->where('_id', $folder->id)->exists());
+        $this->assertTrue(VaultFolder::withTrashed()->whereKey($folder->id)->exists());
     }
 
     public function test_folder_list_all_includes_nested_folders(): void
@@ -95,7 +97,7 @@ class VaultFolderTest extends TestCase
         $response->assertStatus(200)
             ->assertJson(['name' => 'Finance']);
 
-        $this->assertDatabaseHas('vault_folders', ['name' => 'Finance'], 'mongodb');
+        $this->assertDatabaseHas('vault_folders', ['name' => 'Finance']);
     }
 
     public function test_can_create_nested_folder(): void

@@ -5,15 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\VaultFile;
 use App\Models\VaultFolder;
 use App\Services\VaultService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use MongoDB\Driver\Exception\BulkWriteException;
+use Illuminate\Support\Facades\DB;
 
 class VaultFolderController extends Controller
 {
-    private const DUPLICATE_KEY_ERROR = 11000;
-
     private const DUPLICATE_NAME_MESSAGE = 'A folder with this name already exists in this directory.';
 
     protected $vaultService;
@@ -36,27 +35,23 @@ class VaultFolderController extends Controller
 
         $folders = $query->orderBy('name')->get();
 
-        $folderIds = $folders->pluck('_id')->map(fn ($id) => (string) $id)->toArray();
+        $folderIds = $folders->pluck('id')->map(fn ($id) => (string) $id)->toArray();
 
-        // MongoDB aggregation for file counts and sizes
-        $rawStats = VaultFile::raw(function ($collection) use ($folderIds) {
-            return $collection->aggregate([
-                ['$match' => ['folder_id' => ['$in' => $folderIds], 'deleted_at' => null]],
-                ['$group' => [
-                    '_id' => '$folder_id',
-                    'files_count' => ['$sum' => 1],
-                    'files_size' => ['$sum' => '$size_bytes'],
-                ]],
-            ]);
-        });
-
-        $filesStats = collect($rawStats)->keyBy('_id');
+        $filesStats = VaultFile::query()
+            ->whereIn('folder_id', $folderIds)
+            ->groupBy('folder_id')
+            ->get([
+                'folder_id',
+                DB::raw('count(*) as files_count'),
+                DB::raw('coalesce(sum(size_bytes), 0) as files_size'),
+            ])
+            ->keyBy('folder_id');
 
         $folders->transform(function (VaultFolder $folder) use ($filesStats) {
-            $stat = $filesStats->get((string) $folder->_id);
+            $stat = $filesStats->get((string) $folder->getKey());
 
-            $folder->files_count = $stat ? (int) $stat['files_count'] : 0;
-            $folder->files_size = $stat ? (int) $stat['files_size'] : 0;
+            $folder->files_count = $stat ? (int) $stat->files_count : 0;
+            $folder->files_size = $stat ? (int) $stat->files_size : 0;
             // Mark restricted folders so frontend can grey them out (Phase 1.2)
             $folder->is_restricted = $folder->permissions->isNotEmpty();
             $folder->makeHidden('permissions');
@@ -107,7 +102,7 @@ class VaultFolderController extends Controller
         // Prevent folder name collisions within the same parent
         $exists = VaultFolder::where('parent_id', $folder->parent_id)
             ->where('name', $request->name)
-            ->where('_id', '!=', $folder->id)
+            ->whereKeyNot($folder->getKey())
             ->exists();
         if ($exists) {
             return response()->json(['error' => self::DUPLICATE_NAME_MESSAGE], 422);
@@ -140,7 +135,7 @@ class VaultFolderController extends Controller
         // Prevent folder name collisions within the target parent
         $exists = VaultFolder::where('parent_id', $request->parent_id)
             ->where('name', $folder->name)
-            ->where('_id', '!=', $folder->id)
+            ->whereKeyNot($folder->getKey())
             ->exists();
         if ($exists) {
             return response()->json(['error' => $collisionMessage], 422);
@@ -224,11 +219,7 @@ class VaultFolderController extends Controller
             $write();
 
             return null;
-        } catch (BulkWriteException $e) {
-            if ($e->getCode() !== self::DUPLICATE_KEY_ERROR) {
-                throw $e;
-            }
-
+        } catch (UniqueConstraintViolationException $e) {
             return response()->json(['error' => $message], 422);
         }
     }

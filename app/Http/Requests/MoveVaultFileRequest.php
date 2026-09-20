@@ -16,7 +16,7 @@ class MoveVaultFileRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'folder_id' => ['nullable', 'string', Rule::exists(VaultFolder::class, '_id')],
+            'folder_id' => ['nullable', 'string', Rule::exists(VaultFolder::class, 'id')],
         ];
     }
 }

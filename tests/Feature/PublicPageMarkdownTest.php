@@ -15,9 +15,6 @@ class PublicPageMarkdownTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Page::truncate();
-        User::truncate();
-        Role::truncate();
     }
 
     public function test_published_page_returns_html_by_default(): void

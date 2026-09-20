@@ -2,13 +2,12 @@
 
 namespace App\Models;
 
-use MongoDB\Laravel\Eloquent\Model;
+use App\Models\Concerns\HasUlidKey;
+use Illuminate\Database\Eloquent\Model;
 
 class SuppressedEmail extends Model
 {
-    protected $connection = 'mongodb';
-
-    protected $collection = 'suppressed_emails';
+    use HasUlidKey;
 
     /**
      * The attributes that are mass assignable.
