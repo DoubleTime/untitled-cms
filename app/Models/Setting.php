@@ -16,6 +16,7 @@ class Setting extends Model
         'group',
         'type', // text, textarea, boolean, image, number
         'label',
+        'description', // help text shown in the admin UI
         'is_public', // exposed to frontend
     ];
 

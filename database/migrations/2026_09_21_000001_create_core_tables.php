@@ -50,6 +50,9 @@ return new class extends Migration
             $table->string('group')->nullable();
             $table->string('type')->nullable();
             $table->string('label')->nullable();
+            // Help text shown alongside the setting in the admin UI. Absent from
+            // Setting::$fillable, so seeders reach it only via Model::unguarded().
+            $table->text('description')->nullable();
             $table->boolean('is_public')->default(false);
             $table->timestamps();
             $table->index('group');
