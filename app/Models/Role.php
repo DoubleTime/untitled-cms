@@ -2,22 +2,20 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasUlidKey;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Cache;
-use MongoDB\Laravel\Eloquent\Model;
 
 class Role extends Model
 {
-    use HasFactory;
-
-    protected $connection = 'mongodb';
-
-    protected $collection = 'roles';
+    use HasFactory, HasUlidKey;
 
     protected $fillable = ['name', 'slug', 'description', 'permissions', 'is_active', 'backend_access'];
 
     protected $casts = [
+        'permissions' => 'array',
         'is_active' => 'boolean',
         'backend_access' => 'boolean',
     ];

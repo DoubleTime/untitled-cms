@@ -2,13 +2,12 @@
 
 namespace App\Models;
 
-use MongoDB\Laravel\Eloquent\Model;
+use App\Models\Concerns\HasUlidKey;
+use Illuminate\Database\Eloquent\Model;
 
 class VaultFolderPermission extends Model
 {
-    protected $connection = 'mongodb';
-
-    protected $collection = 'vault_folder_permissions';
+    use HasUlidKey;
 
     protected $fillable = [
         'folder_id',
