@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\LoginRequest;
 use App\Models\Role;
 use App\Models\Setting;
 use App\Models\User;
@@ -62,6 +63,15 @@ class SocialAuthController extends Controller
             ]);
         }
 
+        // A Customer User linked by email is refused exactly as on the password
+        // login — they belong to RPA-TOOL and never get a web session. Checked
+        // before the provider is linked so no social account is attached to them.
+        if ($user && LoginRequest::isRpaToolOnly($user)) {
+            return redirect()->route('login')->withErrors([
+                'email' => LoginRequest::RPA_TOOL_ONLY_MESSAGE,
+            ]);
+        }
+
         if (! $user) {
             // Respect the registration gate for new social users
             if (! Setting::get('auth.registration_enabled', false)) {
@@ -87,6 +97,14 @@ class SocialAuthController extends Controller
             }
         } else {
             $this->linkProviderIfNew($user, $socialUser, $provider);
+        }
+
+        // Belt and braces: the race-recovery path above can hand back a different
+        // record than the one checked earlier.
+        if (LoginRequest::isRpaToolOnly($user)) {
+            return redirect()->route('login')->withErrors([
+                'email' => LoginRequest::RPA_TOOL_ONLY_MESSAGE,
+            ]);
         }
 
         // Single authoritative is_active check — applied to every code path before login.

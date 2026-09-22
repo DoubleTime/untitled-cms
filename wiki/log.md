@@ -301,3 +301,21 @@ must run Pint / `npm run build` and report real test output; the dispatcher revi
 
 ## [2026-09-22] ingest | Unysis Marketplace domain model and plan
 - Added `CONTEXT.md` (glossary), `docs/adr/0001–0003`, `docs/marketplace-plan.md`. No code yet.
+
+## [2026-09-22] update | Marketplace Phase 2: Customers, Customer Users and Machines admin
+
+Shipped the Phase 2 admin described in `docs/marketplace-plan.md`. Added
+`Marketplace\{MachineBrand,MachineModel,Customer,CustomerUser}Controller`, `CustomerPolicy`,
+`MachineBrandPolicy`, `MachineModelPolicy` (registered in `AppServiceProvider`), seven form requests
+under `app/Http/Requests/Marketplace/`, and the routes under `admin.marketplace.*`. Deletes refuse
+rather than cascade when dependents exist. Inertia pages live in `resources/js/Pages/Marketplace/`;
+the sidebar gained a Marketplace section gated per `.view` permission, and `HandleInertiaRequests`
+now shares `flash` so those refusals surface as toasts.
+
+Customer Users get only the `customer` role plus `customer_id`; the invite path sends a password
+reset. `User` now uses Sanctum's `HasApiTokens`, which needed a `personal_access_tokens` migration
+with a string `tokenable_id` (ULIDs) and `'user' => User::class` in the enforced morph map.
+
+Web login is now closed to them: `LoginRequest::isRpaToolOnly()` drives a rejection in both
+`LoginRequest::authenticate()` and `SocialAuthController::callback()`. Details in
+[modules/marketplace](modules/marketplace.md); see also [permissions](modules/permissions.md).

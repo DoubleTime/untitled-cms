@@ -6,10 +6,17 @@ use App\Listeners\InjectUnsubscribeHeaders;
 use App\Listeners\LogSentEmail;
 use App\Listeners\StopSuppressedEmail;
 use App\Models\AiModel;
+use App\Models\Customer;
 use App\Models\EmailLog;
 use App\Models\FlowchartScript;
+use App\Models\MachineBrand;
+use App\Models\MachineModel;
 use App\Models\Setting;
+use App\Models\User;
+use App\Policies\CustomerPolicy;
 use App\Policies\EmailLogPolicy;
+use App\Policies\MachineBrandPolicy;
+use App\Policies\MachineModelPolicy;
 use App\Policies\SettingPolicy;
 use App\Services\EmailWebhooks\Contracts\WebhookProvider;
 use App\Services\EmailWebhooks\MailgunWebhookProvider;
@@ -60,9 +67,12 @@ class AppServiceProvider extends ServiceProvider
     {
         // Marketplace polymorphic Revision/Download rows store these short aliases in
         // revisable_type instead of class names; keys match config/marketplace.php.
+        // `user` is here because enforceMorphMap() makes the map exhaustive: Sanctum's
+        // personal access tokens are a morphMany on User, so User needs an alias too.
         Relation::enforceMorphMap([
             'ai_model' => AiModel::class,
             'flowchart_script' => FlowchartScript::class,
+            'user' => User::class,
         ]);
 
         // Re-register the Resend mail transport manually because resend/resend-laravel
@@ -75,6 +85,9 @@ class AppServiceProvider extends ServiceProvider
         Vite::prefetch(concurrency: 3);
         Gate::policy(Setting::class, SettingPolicy::class);
         Gate::policy(EmailLog::class, EmailLogPolicy::class);
+        Gate::policy(Customer::class, CustomerPolicy::class);
+        Gate::policy(MachineBrand::class, MachineBrandPolicy::class);
+        Gate::policy(MachineModel::class, MachineModelPolicy::class);
 
         // Email Logging & Suppression
         // ORDER MATTERS: StopSuppressedEmail must be registered first.

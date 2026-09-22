@@ -2,13 +2,14 @@
 
 > Catalogue of AI Models and FlowChart Scripts that run on UNYSIS AI Boxes, fetched by RPA-TOOL
 
-Last updated: 2026-09-22
+Last updated: 2026-09-22 (Phase 2)
 
 Vocabulary is fixed in [`CONTEXT.md`](../../CONTEXT.md) — use those terms verbatim in code, UI copy and docs.
 The implementation plan is [`docs/marketplace-plan.md`](../../docs/marketplace-plan.md); decisions are in [`docs/adr/`](../../docs/adr).
 
-**Status: Phase 1 (Foundation) shipped.** Schema, models, permissions, config and the private disk exist.
-There are no controllers, routes, services or UI yet.
+**Status: Phase 2 (Customers & Machines admin) shipped.** Phase 1 gave the schema, models,
+permissions, config and the private disk; Phase 2 adds the Customers, Customer User and Machines
+admin plus the web-login rejection. Catalogue entries, Revisions and the RPA-TOOL API are still to come.
 
 ## What it is
 
@@ -112,16 +113,132 @@ may be uploaded. Per docs/adr/0002, AI Boxes identify by the motherboard UUID th
 Customer User login; download attribution (`Customer User + AI Box`) is derived from the API token, never
 from request parameters.
 
+## Admin UI (Phase 2)
+
+All routes live in the existing admin group (`auth` + `verified` + `admin`) under
+`Route::prefix('marketplace')->name('marketplace.')`, so every URL is `/admin/marketplace/...`
+and every route name is `admin.marketplace.*`.
+
+| Route name | Method / path | Controller | Permission |
+|---|---|---|---|
+| `admin.marketplace.machine-brands.*` | resource, no `show` | `Marketplace\MachineBrandController` | `machines.view/create/edit/delete` |
+| `admin.marketplace.machine-models.*` | resource, no `show` | `Marketplace\MachineModelController` | `machines.view/create/edit/delete` |
+| `admin.marketplace.customers.*` | resource **incl. `show`** | `Marketplace\CustomerController` | `customers.view/create/edit/delete` |
+| `admin.marketplace.customers.users.store` | `POST /customers/{customer}/users` | `Marketplace\CustomerUserController@store` | `customers.edit` |
+| `admin.marketplace.customers.users.toggle-active` | `POST .../users/{user}/toggle-active` | `@toggleActive` | `customers.edit` |
+| `admin.marketplace.customers.users.revoke-tokens` | `POST .../users/{user}/revoke-tokens` | `@revokeTokens` | `customers.edit` |
+| `admin.marketplace.customers.users.send-password-reset` | `POST .../users/{user}/send-password-reset` | `@sendPasswordReset` | `customers.edit` |
+
+### Policies
+
+`CustomerPolicy`, `MachineBrandPolicy` and `MachineModelPolicy` map straight onto `customers.*` and
+`machines.*` — Machine Brands and Machine Models deliberately share one permission family. They are
+registered explicitly in `AppServiceProvider::boot()` next to `SettingPolicy` and `EmailLogPolicy`.
+Every Customer User action is authorised as `update` on the **owning Customer**, not on the user.
+
+### Form requests (`app/Http/Requests/Marketplace/`)
+
+`Store`/`Update` pairs for MachineBrand, MachineModel and Customer, plus `StoreCustomerUserRequest`.
+Machine Brand names are globally unique; Machine Model names are unique **per Machine Brand**, mirroring
+the schema's composite unique index. Slugs are never user input — controllers derive them with
+`Str::slug($name)` and append `-2`, `-3`… until unique.
+
+### Deletes never cascade
+
+| Deleting | Refused when | Result |
+|---|---|---|
+| Machine Brand | it still has Machine Models | flash `error`, nothing deleted |
+| Machine Model | it still has FlowChart Scripts or AI Models | flash `error`, nothing deleted |
+| Customer | it still has Customer Users or AI Boxes | flash `error`, nothing deleted |
+
+### Inertia pages (`resources/js/Pages/Marketplace/`)
+
+- `MachineBrands/{Index,Create,Edit}.tsx`
+- `MachineModels/{Index,Create,Edit}.tsx` — the form has a Machine Brand select; the index filters by
+  Machine Brand and by status.
+- `Customers/{Index,Create,Edit,Show}.tsx` — `Show` has a **Customer Users** tab listing name, email,
+  active, created and live session count, with Create Customer User (dialog), Deactivate/Reactivate,
+  Revoke all sessions and Send password reset.
+
+Indexes use the shared `DataTable` with `DataTableToolbar` for search and its built-in client-side
+pagination; the controllers return full ordered collections rather than a Laravel paginator, because
+`DataTable` paginates in the browser.
+
+The sidebar gains a **Marketplace** section (`app-sidebar.tsx`) whose entries appear only for the
+matching `.view` permission: Customers (`customers.view`), Machine Brands and Machine Models
+(`machines.view`).
+
+`HandleInertiaRequests` now shares a `flash` prop (`success` / `error`), and
+`resources/js/hooks/use-flash-toast.ts` turns it into a Sonner toast — that is how the refusal
+messages above actually reach the user.
+
+## Customer Users
+
+Created from the Customer detail page. A new Customer User always gets:
+
+- `customer_id` set to the owning Customer,
+- **only** the `customer` role via `syncRoles()` — never anything carrying `backend_access`,
+- `email_verified_at` set (they never use the web login, so verification is meaningless),
+- `is_active` true.
+
+Leave the password blank and the account is created with a random one and `Password::sendResetLink()`
+is sent, so the Customer User chooses their own.
+
+Deactivating also deletes every Sanctum token (`$user->tokens()->delete()`), so an AI Box already
+holding one stops immediately. "Revoke all sessions" does the same without touching `is_active`, and
+flashes the count revoked.
+
+`User` now uses `Laravel\Sanctum\HasApiTokens`. Two consequences worth knowing:
+
+- Sanctum 4 does not auto-load its migration, and its `morphs('tokenable')` would create a bigint key,
+  which cannot hold this app's ULIDs.
+  `database/migrations/2026_09_23_000001_create_personal_access_tokens_table.php` creates the same
+  table with a **string** `tokenable_id`.
+- `Relation::enforceMorphMap()` makes the morph map exhaustive, so `'user' => User::class` had to be
+  added alongside `ai_model` and `flowchart_script` — Sanctum's `tokens()` is a morphMany on `User`.
+
+## Web login is closed to Customer Users
+
+Per docs/adr/0002 a Customer User reaches the catalogue only through RPA-TOOL and must never hold a
+web session.
+
+`App\Http\Requests\Auth\LoginRequest::isRpaToolOnly(User)` is the single test: true when the user
+`isCustomerUser()` (has a `customer_id`), **or** holds the `customer` role and no role granting
+backend access.
+
+- **Password login** — `LoginRequest::authenticate()` calls `rejectCustomerUser()` after the
+  credential check succeeds: it logs the session straight back out, invalidates it, regenerates the
+  CSRF token, and throws a `ValidationException` on `email` with `LoginRequest::RPA_TOOL_ONLY_MESSAGE`
+  ("This account can only be used from RPA-TOOL."). A wrong password still fails first with the
+  ordinary `auth.failed`, so nothing extra leaks either way.
+- **Socialite** — `SocialAuthController::callback()` applies the same check twice: once on the user
+  found by email, *before* the provider is linked, and once more just before `Auth::login()` to cover
+  the duplicate-key recovery path.
+
+`RequireAdminAccess` already redirects them away from `/admin/*` because the `customer` role has
+`backend_access = false`; the login rejection is the layer in front of it.
+
 ## Tests
 
-`tests/Feature/Marketplace/`: `MarketplaceSchemaTest` (tables exist, unique constraints throw),
-`RevisionModelTest` (polymorphism, `latestReleasedRevision()` semantics), `MarketplacePermissionsTest`
-(permission list, seeded `customer` role, `canAccessBackend()`, `isCustomerUser()`).
+`tests/Feature/Marketplace/`:
+
+- `MarketplaceSchemaTest` — tables exist, unique constraints throw.
+- `RevisionModelTest` — polymorphism, `latestReleasedRevision()` semantics.
+- `MarketplacePermissionsTest` — permission list, seeded `customer` role, `canAccessBackend()`, `isCustomerUser()`.
+- `MachineBrandControllerTest`, `MachineModelControllerTest` — 403 without the permission, CRUD, slug
+  generation, unique validation (including "unique per Machine Brand"), refusal to delete with dependents.
+- `CustomerControllerTest` — 403 without the permission, CRUD, `show`, refusal to delete with Customer
+  Users or AI Boxes.
+- `CustomerUserControllerTest` — only the `customer` role is assigned and `customer_id` is set, the
+  invite path sends `ResetPassword` (`Notification::fake()`), deactivate and revoke delete tokens, a
+  user belonging to another Customer 404s.
+- `CustomerUserWebLoginTest` — the web login refuses a Customer User and a customer-role-only user,
+  while a Team Member and an ordinary user still log in.
+
 Factories exist for all nine models.
 
 ## Remaining phases
 
-2. Customers & Machines admin — CRUD, policies, Inertia pages, Customer User management, web-login rejection.
 3. Catalogue admin — Scripts + AI Models CRUD, `RevisionService`, upload/release/deprecate, gallery, hard delete.
 4. RPA-TOOL API — `routes/api.php` under `/api/v1`, Sanctum login, AI Box auto-register/block, read + download endpoints.
 5. AI Boxes & Downloads admin — box management, download log, counts, installed-revision view.

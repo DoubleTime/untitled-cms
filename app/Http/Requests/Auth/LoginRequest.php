@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -12,6 +13,25 @@ use Illuminate\Validation\ValidationException;
 
 class LoginRequest extends FormRequest
 {
+    /**
+     * Shown to a Customer User who tries the web login. Deliberately says nothing
+     * about whether the password was right.
+     */
+    public const RPA_TOOL_ONLY_MESSAGE = 'This account can only be used from RPA-TOOL.';
+
+    /**
+     * True when this account exists only for RPA-TOOL — it is linked to a Customer,
+     * or it carries the `customer` role and no role granting backend access.
+     */
+    public static function isRpaToolOnly(User $user): bool
+    {
+        if ($user->isCustomerUser()) {
+            return true;
+        }
+
+        return $user->hasRole('customer') && ! $user->canAccessBackend();
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -51,6 +71,33 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
+
+        $this->rejectCustomerUser();
+    }
+
+    /**
+     * Customer Users reach the catalogue only through RPA-TOOL (docs/adr/0002):
+     * they must never hold a web session, even with the right password. The
+     * credentials have already been accepted here, so tear the session back down
+     * before failing.
+     *
+     * @throws ValidationException
+     */
+    protected function rejectCustomerUser(): void
+    {
+        $user = Auth::user();
+
+        if (! $user || ! static::isRpaToolOnly($user)) {
+            return;
+        }
+
+        Auth::guard('web')->logout();
+        $this->session()->invalidate();
+        $this->session()->regenerateToken();
+
+        throw ValidationException::withMessages([
+            'email' => static::RPA_TOOL_ONLY_MESSAGE,
+        ]);
     }
 
     /**

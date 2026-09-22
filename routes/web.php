@@ -12,6 +12,10 @@ use App\Http\Controllers\EmailLogController;
 use App\Http\Controllers\EmailWebhookController;
 use App\Http\Controllers\FeedController;
 use App\Http\Controllers\LlmsController;
+use App\Http\Controllers\Marketplace\CustomerController;
+use App\Http\Controllers\Marketplace\CustomerUserController;
+use App\Http\Controllers\Marketplace\MachineBrandController;
+use App\Http\Controllers\Marketplace\MachineModelController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
@@ -120,6 +124,23 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'admin']
         Route::post('/ai/actions/parse', [AiActionController::class, 'parse'])->name('ai.actions.parse');
         Route::post('/ai/actions/execute', [AiActionController::class, 'execute'])->name('ai.actions.execute');
         Route::post('/ai/actions/revert/{logId}', [AiActionController::class, 'revert'])->name('ai.actions.revert');
+    });
+
+    // Marketplace — Customers, Customer Users and Machines (Phase 2)
+    Route::prefix('marketplace')->name('marketplace.')->group(function () {
+        Route::resource('machine-brands', MachineBrandController::class)->except(['show']);
+        Route::resource('machine-models', MachineModelController::class)->except(['show']);
+        Route::resource('customers', CustomerController::class);
+
+        // Customer Users live under the Customer that owns them.
+        Route::post('/customers/{customer}/users', [CustomerUserController::class, 'store'])
+            ->name('customers.users.store');
+        Route::post('/customers/{customer}/users/{user}/toggle-active', [CustomerUserController::class, 'toggleActive'])
+            ->name('customers.users.toggle-active');
+        Route::post('/customers/{customer}/users/{user}/revoke-tokens', [CustomerUserController::class, 'revokeTokens'])
+            ->name('customers.users.revoke-tokens');
+        Route::post('/customers/{customer}/users/{user}/send-password-reset', [CustomerUserController::class, 'sendPasswordReset'])
+            ->name('customers.users.send-password-reset');
     });
 
     // Activity Log

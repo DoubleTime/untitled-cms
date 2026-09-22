@@ -17,7 +17,8 @@ import {
   ImageIcon,
   LayoutPanelLeft,
   Activity,
-  ExternalLink
+  ExternalLink,
+  Factory
 } from "lucide-react"
 
 import { NavMain } from "@/Components/nav-main"
@@ -39,7 +40,21 @@ import { NavSecondary } from "@/Components/nav-secondary"
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { appName } = usePage().props;
   const user = usePage().props.auth.user;
+  const permissions = usePage().props.auth.permissions ?? [];
   const { url } = usePage();
+
+  // Marketplace entries appear only for the matching `<resource>.view` permission.
+  const marketplaceItems = [
+    ...(permissions.includes('customers.view')
+      ? [{ title: "Customers", url: route('admin.marketplace.customers.index') }]
+      : []),
+    ...(permissions.includes('machines.view')
+      ? [
+          { title: "Machine Brands", url: route('admin.marketplace.machine-brands.index') },
+          { title: "Machine Models", url: route('admin.marketplace.machine-models.index') },
+        ]
+      : []),
+  ];
 
   // Helper to determine if a route is active
   const isActive = (pattern: string) => {
@@ -71,6 +86,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           { title: "Vault", url: route('admin.vault.index') },
         ]
       },
+      ...(marketplaceItems.length > 0
+        ? [{
+            title: "Marketplace",
+            url: "#",
+            icon: Factory,
+            isActive: true,
+            items: marketplaceItems,
+          }]
+        : []),
       {
         title: "Administration",
         url: "#",

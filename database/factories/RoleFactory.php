@@ -14,7 +14,8 @@ class RoleFactory extends Factory
      */
     public function definition(): array
     {
-        $name = fake()->unique()->jobTitle();
+        // Suffix keeps factory roles clear of seeded slugs like `admin` or `customer`.
+        $name = fake()->unique()->jobTitle().' '.fake()->unique()->numerify('###');
 
         return [
             'name' => $name,

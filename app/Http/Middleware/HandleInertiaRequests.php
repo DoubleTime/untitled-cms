@@ -46,6 +46,12 @@ class HandleInertiaRequests extends Middleware
             'aiChatEnabled' => (bool) app(SettingsService::class)->get('ai.chat_enabled', true),
             'menus' => Cache::remember('active_menus', 300, fn () => Menu::active()->get()->keyBy('slug')),
             'passwordRulesString' => Password::defaults()->toPasswordRulesString(),
+            // Controllers flash success/error with redirect()->with(...); the frontend
+            // surfaces these as toasts (see resources/js/hooks/use-flash-toast.ts).
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+            ],
         ];
     }
 }
