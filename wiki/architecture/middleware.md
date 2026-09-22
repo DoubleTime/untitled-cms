@@ -1,8 +1,8 @@
 # Middleware
 
-> Web middleware stack and what each layer does.
+> Web and API middleware stacks, rate limiters, and what each layer does.
 
-Last updated: 2026-04-05
+Last updated: 2026-09-22
 
 ## Web middleware stack (in order)
 
@@ -21,6 +21,36 @@ Last updated: 2026-04-05
    to regular users but lets admins through. This is **not** Laravel's built-in
    maintenance mode — it's a custom implementation that checks the `settings`
    collection and the current user's role.
+
+## API middleware stack (`/api/*`)
+
+`routes/api.php` is registered in `bootstrap/app.php` with
+`withRouting(api: ..., apiPrefix: 'api')`, so it gets Laravel's default `api` group —
+`SubstituteBindings` and nothing else. The RPA-TOOL routes add their own layers:
+
+1. **`auth:sanctum`** — personal access token in `Authorization: Bearer ...`. The `sanctum` guard is
+   declared explicitly in `config/auth.php` (Sanctum would register it anyway).
+2. **`ai-box`** (`App\Http\Middleware\ResolveAiBox`) — resolves the AI Box from the **token's
+   name**, which is the motherboard UUID the token was issued for. It aborts 403 when the box is
+   gone, belongs to another Customer, or is blocked, and when the caller is no longer an active
+   Customer User of an active Customer. The box lands on the request as the `ai_box` attribute; the
+   download endpoints read it from there and never from input. It also calls
+   `AiBoxService::touch()`, which skips the write if the box was seen less than 60 seconds ago from
+   the same IP.
+3. **`throttle:rpa` / `throttle:rpa-download` / `throttle:rpa-login`** — see Rate limiting below.
+
+`ResolveAiBox` running on *every* request, rather than only at login, is deliberate: blocking a box
+or deactivating a Customer User has to take effect at once, not when the 30-day token expires.
+Middleware priority puts `Authenticate` before `ThrottleRequests`, so the throttle limiters can see
+the resolved token.
+
+Exception rendering: `bootstrap/app.php` calls
+`shouldRenderJsonWhen(fn ($request) => $request->is('api/*') || $request->expectsJson())`, so API
+callers get JSON — `401 {"message":"Unauthenticated."}`, `422` with an `errors` map, `403`/`404` with
+a `message` — and are never redirected to the login page or handed an Inertia error page.
+
+See [modules/marketplace](../modules/marketplace.md) and
+[`docs/api/rpa-tool-v1.md`](../../docs/api/rpa-tool-v1.md).
 
 ## Auth middleware
 
@@ -53,6 +83,17 @@ register it explicitly there.
 AI endpoints are rate-limited at the route level, not via middleware:
 - Text generation: 30 requests/minute
 - Image generation: 10 requests/minute
+
+The RPA-TOOL API uses **named** limiters, registered in `AppServiceProvider`:
+
+| Limiter | Limit | Bucket |
+|---|---|---|
+| `rpa-login` | 5/min | Caller IP |
+| `rpa-download` | 20/min | Sanctum token id, IP as fallback |
+| `rpa` | 60/min | Sanctum token id, IP as fallback |
+
+Plain `throttle:60,1` would bucket by **user id**, and one Customer User may run several AI Boxes;
+the token is the box, so the token id is the right bucket.
 
 ## Gotchas
 

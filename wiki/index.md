@@ -15,7 +15,7 @@ Content catalog for the untitled-cms wiki. Updated on every ingest.
 |------|---------|
 | [architecture/stack](architecture/stack.md) | Technology choices and key design decisions |
 | [architecture/request-flow](architecture/request-flow.md) | How a request moves from browser to response |
-| [architecture/middleware](architecture/middleware.md) | Web middleware stack and what each layer does |
+| [architecture/middleware](architecture/middleware.md) | Web and API middleware stacks, rate limiters, what each layer does |
 | [architecture/testing](architecture/testing.md) | Test setup, SQLite (tests) vs PostgreSQL (prod), known gotchas |
 | [architecture/mongodb](architecture/mongodb.md) | Historical: why MongoDB was chosen, and why it was abandoned |
 | [architecture/datastore](architecture/datastore.md) | PostgreSQL migration: ULID keys, schema layout, no FKs, `role_user`, `DateBucket` |
@@ -40,7 +40,7 @@ Content catalog for the untitled-cms wiki. Updated on every ingest.
 | [modules/vault](modules/vault.md) | Media manager: upload pipeline, config, storage |
 | [modules/permissions](modules/permissions.md) | Role-based access control, policy classes, caching |
 | [modules/ai-hub](modules/ai-hub.md) | AI provider config, usage tracking, integration patterns |
-| [modules/marketplace](modules/marketplace.md) | Unysis Marketplace: catalogue schema, revisions, permissions, storage |
+| [modules/marketplace](modules/marketplace.md) | Unysis Marketplace: catalogue schema, revisions, permissions, storage, RPA-TOOL API |
 | [modules/email](modules/email.md) | Resend email pipeline, suppression, webhooks, unsubscribe flow |
 
 ---

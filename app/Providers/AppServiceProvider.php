@@ -24,12 +24,16 @@ use App\Services\EmailWebhooks\Contracts\WebhookProvider;
 use App\Services\EmailWebhooks\MailgunWebhookProvider;
 use App\Services\EmailWebhooks\ResendWebhookProvider;
 use App\Services\EmailWebhooks\SendGridWebhookProvider;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Http\Request;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Resend\Client;
@@ -84,6 +88,8 @@ class AppServiceProvider extends ServiceProvider
             return new ResendTransportFactory($this->app->make(ResendClient::class), $config['options'] ?? []);
         });
 
+        $this->configureRpaToolRateLimiters();
+
         Vite::prefetch(concurrency: 3);
         Gate::policy(Setting::class, SettingPolicy::class);
         Gate::policy(EmailLog::class, EmailLogPolicy::class);
@@ -100,5 +106,28 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(MessageSending::class, StopSuppressedEmail::class);
         Event::listen(MessageSending::class, InjectUnsubscribeHeaders::class);
         Event::listen(MessageSent::class, LogSentEmail::class);
+    }
+
+    /**
+     * Rate limiters for the RPA-TOOL API (routes/api.php).
+     *
+     * Laravel's plain `throttle:60,1` buckets authenticated callers by user id, but
+     * one Customer User may run several AI Boxes and each box is a separate client.
+     * The token is the box (its name is the motherboard UUID), so the token id is
+     * the bucket; unauthenticated callers fall back to the IP.
+     */
+    private function configureRpaToolRateLimiters(): void
+    {
+        $perToken = function (Request $request) {
+            $token = $request->user()?->currentAccessToken();
+
+            return $token instanceof Model
+                ? 'token:'.$token->getKey()
+                : 'ip:'.$request->ip();
+        };
+
+        RateLimiter::for('rpa', fn (Request $request) => Limit::perMinute(60)->by($perToken($request)));
+        RateLimiter::for('rpa-download', fn (Request $request) => Limit::perMinute(20)->by($perToken($request)));
+        RateLimiter::for('rpa-login', fn (Request $request) => Limit::perMinute(5)->by($request->ip()));
     }
 }

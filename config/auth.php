@@ -42,6 +42,14 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // RPA-TOOL authenticates against /api/v1/* with a Sanctum personal access
+        // token (docs/adr/0002). Sanctum registers this guard itself, but it is
+        // declared here so `auth:sanctum` is visible in the app's own config.
+        'sanctum' => [
+            'driver' => 'sanctum',
+            'provider' => 'users',
+        ],
     ],
 
     /*

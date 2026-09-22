@@ -351,3 +351,39 @@ Sidebar entries gated on `scripts.view` / `ai_models.view`; new types in `resour
 Tests: `RevisionServiceTest`, `FlowchartScriptControllerTest`, `AiModelControllerTest`,
 `FlowchartScriptImagesTest` (61 new cases). Full suite 251/251, 614 assertions.
 Details in [modules/marketplace](modules/marketplace.md) and [modules/services](modules/services.md).
+
+## [2026-09-22] update | Marketplace Phase 4: RPA-TOOL API
+
+Shipped the Phase 4 RPA-TOOL API from `docs/marketplace-plan.md`. Added `routes/api.php` (registered
+in `bootstrap/app.php` with `withRouting(api: ..., apiPrefix: 'api')`), everything under
+`/api/v1` with route names `api.v1.*`.
+
+`App\Services\Marketplace\AiBoxService` auto-registers an AI Box from the motherboard UUID a login
+reports, under the Customer User's Customer, as `pending` with `first_user_id`; it refuses a box
+that belongs to another Customer (`AiBoxBelongsToAnotherCustomer`) or has been blocked
+(`AiBoxBlocked`), both 403, and throttles the `last_seen_at` write to once a minute.
+
+`App\Http\Middleware\ResolveAiBox` (alias `ai-box`) runs after `auth:sanctum` on every
+authenticated route: it resolves the box from the **token name** (the UUID the token was issued for),
+re-checks the box, the Customer User and the Customer, and puts the box on the request as the
+`ai_box` attribute. That re-check is what makes blocking a box take effect immediately rather than
+when its 30-day token expires.
+
+Endpoints: `login` / `logout` / `me`, the `machine-brands` / `machine-models` / `customers` lookups,
+and the five catalogue endpoints (`index`, `show`, `revisions`, `download`, `check-update`) for both
+FlowChart Scripts and AI Models, served by an abstract `CatalogueController` with two thin
+subclasses and Eloquent API Resources in `app/Http/Resources/Api/V1/`. Draft Revisions and entries
+with no released Revision are never exposed; downloads record a `Download` with source `api` and the
+box from the request attribute, then stream with `X-Checksum-SHA256`.
+
+Throttling uses named limiters in `AppServiceProvider` keyed on the **token id** (`rpa` 60/min,
+`rpa-download` 20/min, `rpa-login` 5/min by IP), because Laravel's default buckets by user id and one
+Customer User may run several boxes. `config/auth.php` gained an explicit `sanctum` guard.
+
+Wrote `docs/api/rpa-tool-v1.md`, the endpoint reference for the RPA-TOOL developers (auth flow,
+every request/response, error codes, throttles, checksum verification, the check-update loop).
+
+Tests: `tests/Feature/Api/V1/{LoginTest,LogoutMeTest,ResolveAiBoxMiddlewareTest,CatalogueReadTest,DownloadTest,CheckUpdateTest}`
+plus `tests/Unit/AiBoxServiceTest` (69 new cases). Full suite 320/320, 947 assertions.
+Details in [modules/marketplace](modules/marketplace.md) and
+[architecture/middleware](architecture/middleware.md).

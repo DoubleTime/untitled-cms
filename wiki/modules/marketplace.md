@@ -2,16 +2,18 @@
 
 > Catalogue of AI Models and FlowChart Scripts that run on UNYSIS AI Boxes, fetched by RPA-TOOL
 
-Last updated: 2026-09-22 (Phase 3)
+Last updated: 2026-09-22 (Phase 4)
 
 Vocabulary is fixed in [`CONTEXT.md`](../../CONTEXT.md) — use those terms verbatim in code, UI copy and docs.
 The implementation plan is [`docs/marketplace-plan.md`](../../docs/marketplace-plan.md); decisions are in [`docs/adr/`](../../docs/adr).
 
-**Status: Phase 3 (Catalogue admin) shipped.** Phase 1 gave the schema, models, permissions, config
+**Status: Phase 4 (RPA-TOOL API) shipped.** Phase 1 gave the schema, models, permissions, config
 and the private disk; Phase 2 added the Customers, Customer User and Machines admin plus the
-web-login rejection; Phase 3 adds the FlowChart Scripts and AI Models admin, `RevisionService`,
-`DownloadService`, the Revision lifecycle, Preview Images and soft/hard delete. The RPA-TOOL API is
-still to come.
+web-login rejection; Phase 3 added the FlowChart Scripts and AI Models admin, `RevisionService`,
+`DownloadService`, the Revision lifecycle, Preview Images and soft/hard delete; Phase 4 adds
+`routes/api.php`, Sanctum login, AI Box auto-registration and every read + download endpoint.
+The endpoint reference written for the RPA-TOOL developers is
+[`docs/api/rpa-tool-v1.md`](../../docs/api/rpa-tool-v1.md).
 
 ## What it is
 
@@ -267,11 +269,28 @@ draft ------------->  released  ------------->  deprecated
 
 ### DownloadService
 
-- `record(Revision, ?User, ?AiBox, string $source, Request): Download` — `web` in this phase, `api` in
-  Phase 4.
+- `record(Revision, ?User, ?AiBox, string $source, Request): Download` — `web` from the admin pages,
+  `api` from the RPA-TOOL download endpoints (Phase 4).
 - `stream(Revision): StreamedResponse` — `Storage::disk('marketplace')->download()` under the
   `original_filename`, with `X-Checksum-SHA256` and `X-Revision-Number` headers so the caller can verify
   what it got.
+
+### AiBoxService (Phase 4)
+
+`resolve(Customer, string $motherboardUuid, ?string $name, string $ip, User): AiBox` — normalises the
+UUID (trim + lowercase), finds the box or creates it with `status = pending` and `first_user_id`, and
+always bumps `last_seen_at` / `last_ip`. It throws
+`App\Exceptions\Marketplace\AiBoxBelongsToAnotherCustomer` when the UUID is registered to a
+different Customer (never reassigned silently) and `AiBoxBlocked` when the box is blocked; both come
+back as a 403 carrying the exception message. A client-supplied `box_name` only ever fills a
+**blank** name — a Team Member's label is never overwritten.
+
+`touch(AiBox, ?string $ip)` is the per-request presence write, throttled by
+`AiBoxService::TOUCH_INTERVAL_SECONDS` (60): a box seen inside that window from the same IP is not
+written again, so a burst of catalogue reads is not a burst of `UPDATE`s.
+
+`AiBoxService::normaliseUuid()` is the single definition of the comparison form, used by the service
+and by `ResolveAiBox`.
 
 ### Storage layout
 
@@ -346,6 +365,76 @@ The sidebar gains **FlowChart Scripts** (`scripts.view`) and **AI Models** (`ai_
 `ActivityLogger::log` records create / update / delete / restore / upload / release / deprecate /
 hard_delete.
 
+## RPA-TOOL API (Phase 4)
+
+`routes/api.php`, registered in `bootstrap/app.php` with
+`withRouting(api: ..., apiPrefix: 'api')`. Every route sits under
+`Route::prefix('v1')->name('api.v1.')`, so URLs are `/api/v1/...` and names `api.v1.*`.
+
+Auth is a Sanctum personal access token (`auth:sanctum`; the guard is also spelled out in
+`config/auth.php`). **The token's name is the motherboard UUID it was issued for** — that is how
+every later request finds its AI Box, and why download attribution can never come from request input
+(docs/adr/0002).
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/login` | email, password, motherboard_uuid, box_name? -> token + user + customer + ai_box |
+| POST | `/logout` | deletes the current token, 204 |
+| GET | `/me` | identity payload + `token_expires_at` |
+| GET | `/machine-brands` | id, name, slug |
+| GET | `/machine-models?brand=` | active only, with brand |
+| GET | `/customers` | id + company, **all** active Customers (docs/adr/0001) |
+| GET | `/scripts?machine_model=&brand=&customer=&q=&per_page=&page=` | paginated; only entries with a released Revision |
+| GET | `/scripts/{id}` | detail + images + released/deprecated Revisions |
+| GET | `/scripts/{id}/revisions` | the same Revision array |
+| GET | `/scripts/{id}/download?revision=` | streams the file, records a Download |
+| GET | `/scripts/{id}/check-update?current=` | `{update_available, latest, current_status}` |
+| | `/ai-models/...` | the same five, `framework`/`input_size`/`labels`/`notes` instead of images |
+
+### Who may sign in
+
+`AuthController::login` is the mirror image of the web login: the web refuses Customer Users, the API
+refuses everyone else. A caller must pass `LoginRequest::isRpaToolOnly()`, have a `customer_id`,
+belong to an **active** Customer, and be `is_active` itself. A wrong password and an unknown email
+both return the same 422 `These credentials do not match our records.`
+
+### ResolveAiBox middleware
+
+Alias `ai-box`, applied after `auth:sanctum` on every authenticated API route. It re-runs the whole
+gate on **every** request — account active, still a Customer User, Customer active, box exists,
+belongs to this Customer, not blocked — then puts the box on the request as the `ai_box` attribute
+and calls `AiBoxService::touch()`. That re-check is the point: blocking a box or deactivating a
+Customer User cuts access off at once rather than when the 30-day token expires. See
+[architecture/middleware](../architecture/middleware.md).
+
+### Throttling
+
+Plain `throttle:60,1` buckets authenticated callers by **user id**, but one Customer User may run
+several AI Boxes. Three named limiters are registered in `AppServiceProvider` and keyed on the
+**token id** instead (falling back to the IP): `rpa` (60/min), `rpa-download` (20/min) and
+`rpa-login` (5/min, by IP since there is no token yet).
+
+### What the API never shows
+
+- **Draft Revisions.** Lists, detail, `revisions` and `download` all filter to released + deprecated.
+  A `?revision=N` pointing at a draft is a 404.
+- **Entries with no released Revision.** Hidden from the list (`whereHas` released); the detail
+  endpoint still resolves them, with an empty `revisions` array.
+- **Soft-deleted entries.** Route model binding is not `withTrashed()`, so they 404.
+- `revisions_count` counts what the API exposes (released + deprecated), not drafts.
+
+### Resources
+
+`app/Http/Resources/Api/V1/`: `MachineBrandResource`, `MachineModelResource`, `CustomerResource`,
+`RevisionResource` (full) and `RevisionSummaryResource` (the `latest_revision` / `latest` short
+form), plus `FlowchartScript{,Detail}Resource` and `AiModel{,Detail}Resource`. The fields the two
+entry types share live in `Concerns\PresentsCatalogueEntry`, which reads `latest_revision` out of
+the eager-loaded, status-narrowed `revisions` relation rather than querying per row.
+
+`CatalogueController` (abstract) holds index / show / revisions / download / check-update for both
+entry types; `FlowchartScriptController` and `AiModelController` are thin, and exist mainly so the
+route parameter `{entry}` has a concrete type hint for implicit binding.
+
 ## Tests
 
 `tests/Feature/Marketplace/`:
@@ -376,15 +465,38 @@ hard_delete.
 
 Factories exist for all nine models.
 
+`tests/Feature/Api/V1/` (Phase 4), all on top of `ApiTestCase`:
+
+- `LoginTest` — payload and token TTL/name, UUID normalisation, generic 422 for a wrong password or
+  unknown email, 403 for an inactive user / a Team Member / an inactive Customer / a blocked box / a
+  box owned by another Customer, auto-registration as `pending` with `first_user_id`, reuse of an
+  existing box without clobbering its label, and the 5/min login throttle.
+- `LogoutMeTest` — JSON 401 (with and without an `Accept` header), `me`, logout deleting only the
+  current token, expired token refused.
+- `ResolveAiBoxMiddlewareTest` — blocking, deleting or reassigning the box, and deactivating the
+  user or the Customer, all refuse the *next* request on a live token; the touch throttle.
+- `CatalogueReadTest` — lookups, entries without a released Revision hidden, drafts absent from
+  detail, filters, the `q` search, per-page cap, soft-deleted 404, AI Model metadata.
+- `DownloadTest` — default latest released, explicit deprecated, draft/unknown 404, the Download row
+  (`api` + user + box), headers, cross-entry Revision, the 20/min throttle.
+- `CheckUpdateTest` — every `current_status` branch.
+- `tests/Unit/AiBoxServiceTest` — the service in isolation.
+
+Tokens in these tests come from the real `POST /api/v1/login` rather than `Sanctum::actingAs`,
+because `ResolveAiBox` resolves the box from the token **name** and an acting-as transient token
+carries none. `ApiTestCase::asToken()` calls `forgetGuards()` first: the auth guard caches the
+resolved user for the life of the container, which survives between requests inside one test.
+
 ## Remaining phases
 
-4. RPA-TOOL API — `routes/api.php` under `/api/v1`, Sanctum login, AI Box auto-register/block, read + download endpoints.
 5. AI Boxes & Downloads admin — box management, download log, counts, installed-revision view.
 6. CMS strip (deferred) — possibly remove pages/banners/menus/llms/AI hub.
 
 ## See also
 
+- [`docs/api/rpa-tool-v1.md`](../../docs/api/rpa-tool-v1.md) — the endpoint reference for RPA-TOOL developers
 - [permissions](permissions.md)
 - [vault](vault.md)
+- [architecture/middleware](../architecture/middleware.md)
 - [architecture/datastore](../architecture/datastore.md)
 - [database/collections](../database/collections.md)

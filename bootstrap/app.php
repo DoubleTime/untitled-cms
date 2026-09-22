@@ -5,6 +5,7 @@ use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\CheckRedirects;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RequireAdminAccess;
+use App\Http\Middleware\ResolveAiBox;
 use App\Http\Middleware\VerifyEmailWebhook;
 use App\Http\Middleware\VerifySessionVersion;
 use Illuminate\Foundation\Application;
@@ -19,6 +20,9 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        // RPA-TOOL API — see routes/api.php and docs/api/rpa-tool-v1.md.
+        api: __DIR__.'/../routes/api.php',
+        apiPrefix: 'api',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
@@ -40,6 +44,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'can' => CheckPermission::class,
             'admin' => RequireAdminAccess::class,
             'webhook.email' => VerifyEmailWebhook::class,
+            'ai-box' => ResolveAiBox::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

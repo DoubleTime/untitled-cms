@@ -127,6 +127,23 @@ Inertia form pattern: use `useForm()` from `@inertiajs/react` — handles loadin
 - **AI image generation:** `throttle:10,1`
 - **AI chat + actions:** `throttle:60,1`
 
+### RPA-TOOL API (`routes/api.php`, prefix `/api/v1`, names `api.v1.*`)
+
+Registered via `withRouting(api: ..., apiPrefix: 'api')`. Consumed by RPA-TOOL on UNYSIS AI Boxes;
+full reference in `docs/api/rpa-tool-v1.md`.
+
+- **Public:** `POST /api/v1/login` — `throttle:rpa-login` (5/min per IP)
+- **Token-authenticated** (`auth:sanctum` + `ai-box`):
+  - `POST /logout`, `GET /me`
+  - `GET /machine-brands`, `/machine-models`, `/customers`
+  - `GET /scripts`, `/scripts/{entry}`, `/scripts/{entry}/revisions`, `/scripts/{entry}/check-update`
+  - `GET /ai-models`, `/ai-models/{entry}`, `/ai-models/{entry}/revisions`, `/ai-models/{entry}/check-update`
+  - all of the above `throttle:rpa` (60/min per token)
+  - `GET /scripts/{entry}/download`, `GET /ai-models/{entry}/download` — `throttle:rpa-download` (20/min per token)
+
+`ai-box` is `App\Http\Middleware\ResolveAiBox`: it resolves the AI Box from the Sanctum token's
+name (the motherboard UUID) and re-checks box, Customer User and Customer on every request.
+
 ## Database
 
 PostgreSQL is required for production; tests run on SQLite in-memory (see Testing Guidelines below).
