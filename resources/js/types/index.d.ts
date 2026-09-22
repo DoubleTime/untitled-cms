@@ -101,6 +101,8 @@ export interface Revision {
     uploader?: Pick<User, 'id' | 'name'> | null;
     releaser?: Pick<User, 'id' | 'name'> | null;
     downloads_count?: number;
+    /** Distinct AI Boxes that pulled this Revision. */
+    unique_boxes_count?: number;
     created_at?: string;
 }
 
@@ -185,6 +187,83 @@ export interface Download {
     created_at?: string;
 }
 
+/** Where an AI Box stands: auto-registered, acknowledged, or cut off. */
+export type AiBoxStatus = 'pending' | 'active' | 'blocked';
+
+/**
+ * A deployed UNYSIS edge device running RPA-TOOL, identified by its motherboard
+ * UUID and belonging to one Customer. Auto-registered on first API login — the
+ * admin only labels, acknowledges, blocks or removes one.
+ */
+export interface AiBox {
+    id: string;
+    customer_id: string;
+    motherboard_uuid: string;
+    name?: string | null;
+    location?: string | null;
+    machine_model_id?: string | null;
+    status: AiBoxStatus;
+    last_seen_at?: string | null;
+    last_ip?: string | null;
+    first_user_id?: string | null;
+    customer?: Pick<Customer, 'id' | 'company'> | null;
+    machine_model?: (Pick<MachineModel, 'id' | 'name' | 'machine_brand_id'> & {
+        machine_brand?: Pick<MachineBrand, 'id' | 'name'> | null;
+    }) | null;
+    first_user?: Pick<User, 'id' | 'name' | 'email'> | null;
+    downloads_count?: number;
+    created_at?: string;
+    updated_at?: string;
+}
+
+/**
+ * What an AI Box currently runs for one catalogue entry: derived server-side as
+ * the latest Download of that entry by that box. Never stored.
+ */
+export interface InstalledRevision {
+    key: string;
+    entry_type: 'flowchart_script' | 'ai_model';
+    entry_id: string;
+    entry_name?: string | null;
+    entry_deleted: boolean;
+    machine_model?: string | null;
+    machine_brand?: string | null;
+    installed_number?: number | null;
+    installed_status?: RevisionStatus | null;
+    downloaded_at?: string | null;
+    latest_released_number?: number | null;
+    outdated: boolean;
+}
+
+/** A Download row as the admin log pages present it, with its entry resolved. */
+export interface DownloadLogRow {
+    id: string;
+    created_at?: string | null;
+    source: 'api' | 'web';
+    ip?: string | null;
+    entry_type: 'flowchart_script' | 'ai_model';
+    entry_id: string;
+    entry_name?: string | null;
+    entry_deleted: boolean;
+    user?: Pick<User, 'id' | 'name'> | null;
+    ai_box?: Pick<AiBox, 'id' | 'name' | 'motherboard_uuid'> | null;
+    revision?: Pick<Revision, 'id' | 'number'> | null;
+}
+
+/** A Laravel paginator as it arrives in Inertia props. */
+export interface Paginated<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+    links: { url: string | null; label: string; active: boolean }[];
+    prev_page_url: string | null;
+    next_page_url: string | null;
+}
+
 export interface SharedSettings {
     social_login_google_enabled?: boolean;
     social_login_github_enabled?: boolean;
@@ -213,6 +292,8 @@ export type PageProps<
     canUpload?: boolean;
     canRelease?: boolean;
     canHardDelete?: boolean;
+    canBlock?: boolean;
+    canViewAiBoxes?: boolean;
     passwordRulesString?: string;
 };
 

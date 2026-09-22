@@ -86,6 +86,7 @@ export default function RevisionsTable({
                             <TableHead>Uploaded by</TableHead>
                             <TableHead>Released</TableHead>
                             <TableHead>Downloads</TableHead>
+                            <TableHead>AI Boxes</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -128,6 +129,11 @@ export default function RevisionsTable({
                                 </TableCell>
                                 <TableCell>
                                     <Badge variant="outline">{revision.downloads_count ?? 0}</Badge>
+                                </TableCell>
+                                <TableCell>
+                                    <Badge variant="outline" title="Distinct AI Boxes that pulled this Revision">
+                                        {revision.unique_boxes_count ?? 0}
+                                    </Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
                                     <DropdownMenu>

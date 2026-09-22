@@ -387,3 +387,44 @@ Tests: `tests/Feature/Api/V1/{LoginTest,LogoutMeTest,ResolveAiBoxMiddlewareTest,
 plus `tests/Unit/AiBoxServiceTest` (69 new cases). Full suite 320/320, 947 assertions.
 Details in [modules/marketplace](modules/marketplace.md) and
 [architecture/middleware](architecture/middleware.md).
+
+## [2026-09-22] update | Marketplace Phase 5 — AI Boxes & Downloads admin
+
+Added the AI Boxes admin and the Download log, closing the last build phase before the deferred
+CMS strip. `AiBoxController` (index / show / edit / update / activate / block / unblock / destroy)
+under `AiBoxPolicy` (`ai_boxes.view` / `.edit` / `.block`, registered in `AppServiceProvider`), and
+`DownloadController@index` behind `can:downloads.view`. Routes sit under the existing `marketplace`
+prefix; the sidebar gains AI Boxes and Downloads, each gated on its `.view` permission.
+
+Boxes are never created from the admin — RPA-TOOL registers them (docs/adr/0002) — and `update`
+accepts only `name`, `location` and `machine_model_id`. Status moves only through the three explicit
+actions. **Blocking deletes every Sanctum token named after the box's motherboard UUID**, so access
+is cut in the same instant rather than on the next `ResolveAiBox` check; `destroy` refuses a box with
+recorded Downloads, since Download rows are never deleted.
+
+`AiBoxInstalledService` derives the Installed tab — the latest Download per catalogue entry per box.
+It reduces the box's own (bounded) Download log in PHP rather than carrying a window function for
+PostgreSQL and a self-join for SQLite, and because `max(id)` is not the latest row when the keys are
+ULIDs. Five queries regardless of entry count; the writeup is in
+[modules/marketplace](modules/marketplace.md).
+
+The Download log is server-paginated at 50 a page with filters on source, Customer, AI Box, entry
+type, entry name, user and date range, plus a summary strip (total, last 7 days, unique boxes, top 5
+entries) computed over the filtered set in four grouped queries. Customer and entry-name filtering
+both needed care: a Download carries no `customer_id` (it reaches one through its AI Box or its
+Customer User), and no join is possible across two tables behind one morph column.
+`App\Support\DownloadPresenter` resolves entry names `withTrashed()` per page so a row whose entry was
+hard deleted still renders.
+
+Also: a unique-AI-Box count beside the Download total on the Scripts and AI Models Show pages (header
+and per Revision row, via a correlated `count(distinct ai_box_id)` sub-select), an AI Boxes tab on the
+Customer detail page, and `DownloadFactory` corrected to store the morph alias rather than the class
+name. No migration was needed — every figure on these pages is derived.
+
+Not done: no Marketplace cards on the Dashboard. That page has no data-driven stats grid to extend
+(its cards come from a hardcoded `section-cards.tsx` with placeholder figures), so wiring real counts
+belongs with the Phase 6 CMS strip.
+
+Tests: `tests/Feature/Marketplace/{AiBoxControllerTest,AiBoxInstalledTest,DownloadControllerTest}`
+(39 new cases), plus one case in `FlowchartScriptControllerTest` covering the new count columns.
+Full suite 360/360, 1217 assertions; Pint clean; `npm run build` exits 0.

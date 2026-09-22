@@ -2,16 +2,17 @@
 
 > Catalogue of AI Models and FlowChart Scripts that run on UNYSIS AI Boxes, fetched by RPA-TOOL
 
-Last updated: 2026-09-22 (Phase 4)
+Last updated: 2026-09-22 (Phase 5)
 
 Vocabulary is fixed in [`CONTEXT.md`](../../CONTEXT.md) — use those terms verbatim in code, UI copy and docs.
 The implementation plan is [`docs/marketplace-plan.md`](../../docs/marketplace-plan.md); decisions are in [`docs/adr/`](../../docs/adr).
 
-**Status: Phase 4 (RPA-TOOL API) shipped.** Phase 1 gave the schema, models, permissions, config
-and the private disk; Phase 2 added the Customers, Customer User and Machines admin plus the
-web-login rejection; Phase 3 added the FlowChart Scripts and AI Models admin, `RevisionService`,
-`DownloadService`, the Revision lifecycle, Preview Images and soft/hard delete; Phase 4 adds
-`routes/api.php`, Sanctum login, AI Box auto-registration and every read + download endpoint.
+**Status: Phases 1-5 complete; Phase 6 (CMS strip) pending.** Phase 1 gave the schema, models,
+permissions, config and the private disk; Phase 2 added the Customers, Customer User and Machines
+admin plus the web-login rejection; Phase 3 added the FlowChart Scripts and AI Models admin,
+`RevisionService`, `DownloadService`, the Revision lifecycle, Preview Images and soft/hard delete;
+Phase 4 added `routes/api.php`, Sanctum login, AI Box auto-registration and every read + download
+endpoint; Phase 5 adds the AI Boxes admin, the Download log and the derived installed-revision view.
 The endpoint reference written for the RPA-TOOL developers is
 [`docs/api/rpa-tool-v1.md`](../../docs/api/rpa-tool-v1.md).
 
@@ -435,6 +436,114 @@ the eager-loaded, status-narrowed `revisions` relation rather than querying per 
 entry types; `FlowchartScriptController` and `AiModelController` are thin, and exist mainly so the
 route parameter `{entry}` has a concrete type hint for implicit binding.
 
+## AI Boxes and Downloads admin (Phase 5)
+
+| Route name | Method / path | Permission |
+|---|---|---|
+| `admin.marketplace.ai-boxes.index` | `GET ai-boxes` | `ai_boxes.view` |
+| `admin.marketplace.ai-boxes.show` | `GET ai-boxes/{ai_box}` | `ai_boxes.view` |
+| `admin.marketplace.ai-boxes.edit` / `.update` | `GET` / `PUT ai-boxes/{ai_box}` | `ai_boxes.edit` |
+| `admin.marketplace.ai-boxes.activate` | `POST ai-boxes/{ai_box}/activate` | `ai_boxes.edit` |
+| `admin.marketplace.ai-boxes.block` | `POST ai-boxes/{ai_box}/block` | `ai_boxes.block` |
+| `admin.marketplace.ai-boxes.unblock` | `POST ai-boxes/{ai_box}/unblock` | `ai_boxes.block` |
+| `admin.marketplace.ai-boxes.destroy` | `DELETE ai-boxes/{ai_box}` | `ai_boxes.edit` |
+| `admin.marketplace.downloads.index` | `GET downloads` | `downloads.view` (route middleware `can:`) |
+
+`AiBoxPolicy` maps `viewAny`/`view` onto `ai_boxes.view`, `update`/`delete` onto `ai_boxes.edit` and
+`block` onto `ai_boxes.block`; it is registered in `AppServiceProvider::boot()`. There is deliberately
+**no `create`** — RPA-TOOL registers a box by itself on first login (docs/adr/0002). The Download log
+has no model of its own to authorise against, so its route carries `can:downloads.view` and the
+controller re-checks `hasPermission('downloads.view')`.
+
+### What a Team Member can change
+
+`UpdateAiBoxRequest` accepts only `name`, `location` and `machine_model_id`. The motherboard UUID is
+what the box reports and what its token is named after, and **`status` never moves through `update`** —
+it changes only through the three explicit actions:
+
+- **activate** (`ai_boxes.edit`) — `pending` -> `active`. This is "I know this box", not a security
+  action; it refuses a blocked box and tells the Team Member to unblock instead.
+- **block** (`ai_boxes.block`) — sets `blocked` **and deletes every Sanctum token named after the box's
+  motherboard UUID**. `ResolveAiBox` would already refuse the box on its next request, but deleting the
+  tokens revokes access in the same instant and without depending on the middleware; the token name *is*
+  the UUID (docs/adr/0002), so "every token for this box" is an exact lookup. The flash says how many
+  sessions were revoked.
+- **unblock** (`ai_boxes.block`) — back to `active`. The box must sign in again, since its tokens are gone.
+
+`destroy` refuses a box that has any recorded Downloads — Download rows are the record of what a box
+installed and are never deleted — and suggests blocking instead. A box with none is deleted along with
+any tokens named after it.
+
+### The Installed tab — how "installed" is derived
+
+Nothing is stored. `App\Services\Marketplace\AiBoxInstalledService::forBox()` treats **the latest
+Download of a catalogue entry by that box** as what the box is running, and returns one row per entry
+it has ever fetched, whatever that Revision's status is now: a box that only ever pulled a Revision
+since deprecated is still running it. Each row carries the entry, its Machine Model, the installed
+Revision number and status, when it was downloaded, the highest **released** Revision number, and an
+`outdated` flag when the installed number is lower than that. A draft Revision never makes an install
+look outdated.
+
+**Why the reduction happens in PHP.** The natural SQL is "the row with the greatest `created_at` per
+(`revisable_type`, `revisable_id`)", which needs a window function or a self-join on a grouped max —
+and `max(id)` is *not* the latest row, because the primary keys are ULIDs and only sort lexically when
+generated in order. Rather than carry two dialect-specific queries for SQLite (tests) and PostgreSQL
+(production), the service reads the box's own Download log — bounded by one AI Box, so tens to a few
+hundred rows — ordered newest first and keeps the first row it sees per entry. The whole derivation is
+**five queries** regardless of how many entries are installed: the Download log, the two entry tables
+(`withTrashed()`, so a removed entry still shows), and the released Revisions of each entry type.
+
+### The Download log
+
+`DownloadController@index` is server-paginated at **50 a page** (the indexes elsewhere hand the whole
+collection to the browser's `DataTable`; the Download log is append-only and unbounded, so it cannot).
+Filters: `source`, `customer_id`, `ai_box_id`, `entry_type`, `user_id`, `q` (entry name) and `from` / `to`.
+
+Two of them are less obvious than they look:
+
+- **Customer** — a Download carries no `customer_id`. It belongs to a Customer through the AI Box it
+  came from, *or*, for a web fetch with no box, through the Customer User who made it, so the filter is
+  an `OR` of two `whereIn` subqueries.
+- **Entry name** — a join is impossible across two tables behind one morph column, so the matching entry
+  ids are resolved per entry type first (`withTrashed()`) and the polymorphic columns filtered on those.
+
+The summary strip above the table (total, last 7 days, unique AI Boxes, top 5 entries) is computed over
+the **filtered** set with four grouped queries, whatever the row count. `count(distinct ai_box_id)` and
+a two-column `group by` both run unchanged on SQLite and PostgreSQL, so `App\Support\DateBucket` was
+not needed here.
+
+`App\Support\DownloadPresenter` shapes the rows for both this page and the AI Box Downloads tab. It
+resolves entry names with one `withTrashed()` query per entry type per page, because a `morphTo` eager
+load would not reach a soft-deleted entry — and hard-deleting an entry deliberately keeps its Download
+rows, so a row whose entry is gone entirely still renders, unlinked.
+
+### Inertia pages and components
+
+- `resources/js/Pages/Marketplace/AiBoxes/{Index,Show,Edit}.tsx` — the index is the shared `DataTable`
+  with faceted filters on Customer, status and Machine Model, and one hidden `search` column joining the
+  motherboard UUID, name and location so one box matches on any of the three. `Show` has tabs
+  **Installed**, **Downloads** (server-paginated) and **Details**.
+- `resources/js/Pages/Marketplace/Downloads/Index.tsx` — the summary strip, the filter bar (filters go
+  through the URL, so a filtered log is linkable) and the log.
+- `resources/js/Components/Marketplace/` gains `AiBoxStatusBadge.tsx`, `InstalledRevisionsTable.tsx`,
+  `DownloadLogTable.tsx` (the full log, with optional entry and AI Box columns — the older
+  `DownloadsTable.tsx` stays as the narrow per-entry web-fetch list on the catalogue Show pages) and
+  `Pagination.tsx`. `format.ts` gains `formatRelative()` for last-seen columns.
+- The Customer detail page gains an **AI Boxes** tab (uuid, name, status, last seen), linking to each
+  box when the viewer has `ai_boxes.view`.
+- The Scripts and AI Models Show pages gain a **unique AI Boxes** count beside the Download total, in
+  the header and per Revision row. The per-Revision figure is a correlated `count(distinct ai_box_id)`
+  sub-select added to the existing Revisions query, so it is still one query.
+- The sidebar gains **AI Boxes** (`ai_boxes.view`) and **Downloads** (`downloads.view`).
+
+`ActivityLogger::log` records `update`, `activate`, `block`, `unblock` and `delete` on AI Boxes.
+
+**Not done:** no Marketplace cards were added to the Dashboard. `resources/js/Pages/Dashboard.tsx` has
+no data-driven stats grid to extend — its cards come from the hardcoded `Components/section-cards.tsx`
+with placeholder figures, and the page still carries mock "recent sales" data. Wiring real Marketplace
+counts in means replacing that component and `DashboardController`'s payload, which belongs with the
+Phase 6 CMS strip rather than inside this one.
+
 ## Tests
 
 `tests/Feature/Marketplace/`:
@@ -482,6 +591,23 @@ Factories exist for all nine models.
 - `CheckUpdateTest` — every `current_status` branch.
 - `tests/Unit/AiBoxServiceTest` — the service in isolation.
 
+`tests/Feature/Marketplace/` (Phase 5):
+
+- `AiBoxControllerTest` — 403 on every route without the matching permission, the index payload and its
+  filter option sets, the label update, `status` and `motherboard_uuid` ignored by `update`, an unknown
+  Machine Model refused, activate (including refusing a blocked box, and needing `ai_boxes.edit` rather
+  than `ai_boxes.block`), unblock, destroy refused with Downloads and allowed without. Blocking is
+  tested end to end: a token obtained from the real `POST /api/v1/login` works against `/api/v1/me`,
+  the block deletes it, and the same token then 401s — while a second box's token is left alone.
+- `AiBoxInstalledTest` — the latest Download per entry wins even when the rows are inserted newest
+  first, the outdated flag, a draft Revision not making an install outdated, an entry whose only
+  Download was of a since-deprecated Revision still listed, both entry types side by side, another
+  box's Downloads ignored, and a soft-deleted entry still reported.
+- `DownloadControllerTest` — 403 without `downloads.view`, newest-first ordering, 50-a-page pagination,
+  every filter (source, entry type, AI Box, Customer through both the box and the user, user, entry
+  name across both entry types, date range), the summary figures, and a Download whose entry was hard
+  deleted still appearing.
+
 Tokens in these tests come from the real `POST /api/v1/login` rather than `Sanctum::actingAs`,
 because `ResolveAiBox` resolves the box from the token **name** and an acting-as transient token
 carries none. `ApiTestCase::asToken()` calls `forgetGuards()` first: the auth guard caches the
@@ -489,7 +615,6 @@ resolved user for the life of the container, which survives between requests ins
 
 ## Remaining phases
 
-5. AI Boxes & Downloads admin — box management, download log, counts, installed-revision view.
 6. CMS strip (deferred) — possibly remove pages/banners/menus/llms/AI hub.
 
 ## See also

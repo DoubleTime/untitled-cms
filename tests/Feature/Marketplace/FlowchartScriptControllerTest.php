@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Marketplace;
 
+use App\Models\AiBox;
 use App\Models\Customer;
 use App\Models\Download;
 use App\Models\FlowchartScript;
@@ -12,6 +13,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
 class FlowchartScriptControllerTest extends TestCase
@@ -375,5 +377,43 @@ class FlowchartScriptControllerTest extends TestCase
         Storage::disk('marketplace')->assertMissing($revision->disk_path);
         $this->assertDatabaseCount('revisions', 0);
         $this->assertDatabaseCount('downloads', 1);
+    }
+
+    public function test_the_show_page_carries_download_and_unique_box_counts(): void
+    {
+        $script = FlowchartScript::factory()->create(['machine_model_id' => $this->machineModel->id]);
+
+        $this->actingAs($this->admin)->post("/admin/marketplace/scripts/{$script->id}/revisions", [
+            'file' => $this->zipFile(),
+            'change_note' => 'First',
+        ]);
+
+        $revision = Revision::first();
+        $customer = Customer::factory()->create();
+        $boxA = AiBox::factory()->create(['customer_id' => $customer->id]);
+        $boxB = AiBox::factory()->create(['customer_id' => $customer->id]);
+
+        // Three Downloads from two distinct AI Boxes: the totals must differ.
+        foreach ([$boxA->id, $boxA->id, $boxB->id] as $boxId) {
+            Download::factory()->create([
+                'revision_id' => $revision->id,
+                'revisable_type' => 'flowchart_script',
+                'revisable_id' => $script->id,
+                'ai_box_id' => $boxId,
+            ]);
+        }
+
+        $this->actingAs($this->admin)
+            ->get("/admin/marketplace/scripts/{$script->id}")
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('downloadStats.total', 3)
+                ->where('downloadStats.unique_boxes', 2)
+                ->where('revisions.0.downloads_count', 3)
+                ->where('revisions.0.unique_boxes_count', 2)
+                // The sub-select must not have replaced the Revision's own columns.
+                ->where('revisions.0.number', 1)
+                ->where('revisions.0.change_note', 'First')
+            );
     }
 }

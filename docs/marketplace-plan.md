@@ -73,12 +73,12 @@ Every token carries the AI Box in its name; `me`/downloads resolve the box from 
 
 ## Phases (each = one PR, tests + Pint + `npm run build` green, wiki updated)
 
-1. **Foundation** — migrations, models, permissions, seeders, `config/marketplace.php`, private disk. Feature tests for models + permissions. `wiki/modules/marketplace.md` created.
-2. **Customers & Machines admin** — CRUD controllers, policies, Inertia pages, Customer User management + web-login rejection.
-3. **Catalogue admin** — Scripts + AI Models CRUD, `RevisionService`, upload/release/deprecate, gallery, soft/hard delete, web download logging.
-4. **RPA-TOOL API** — Sanctum login, AI Box auto-register/block, all read + download endpoints, API resources, feature tests per endpoint including throttle + blocked-box cases.
-5. **AI Boxes & Downloads admin** — box management, download log, counts, installed-revision view.
-6. **CMS strip (deferred, decide later)** — remove pages/banners/menus/llms/AI hub if confirmed.
+1. **Foundation** — migrations, models, permissions, seeders, `config/marketplace.php`, private disk. Feature tests for models + permissions. `wiki/modules/marketplace.md` created. ✅ shipped
+2. **Customers & Machines admin** — CRUD controllers, policies, Inertia pages, Customer User management + web-login rejection. ✅ shipped
+3. **Catalogue admin** — Scripts + AI Models CRUD, `RevisionService`, upload/release/deprecate, gallery, soft/hard delete, web download logging. ✅ shipped
+4. **RPA-TOOL API** — Sanctum login, AI Box auto-register/block, all read + download endpoints, API resources, feature tests per endpoint including throttle + blocked-box cases. ✅ shipped
+5. **AI Boxes & Downloads admin** — box management, download log, counts, installed-revision view. ✅ shipped
+6. **CMS strip (deferred, decide later)** — remove pages/banners/menus/llms/AI hub if confirmed. ⬜ pending
 
 ## Model selection for dispatch
 

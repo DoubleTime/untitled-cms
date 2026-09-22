@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Listeners\InjectUnsubscribeHeaders;
 use App\Listeners\LogSentEmail;
 use App\Listeners\StopSuppressedEmail;
+use App\Models\AiBox;
 use App\Models\AiModel;
 use App\Models\Customer;
 use App\Models\EmailLog;
@@ -13,6 +14,7 @@ use App\Models\MachineBrand;
 use App\Models\MachineModel;
 use App\Models\Setting;
 use App\Models\User;
+use App\Policies\AiBoxPolicy;
 use App\Policies\AiModelPolicy;
 use App\Policies\CustomerPolicy;
 use App\Policies\EmailLogPolicy;
@@ -98,6 +100,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(MachineModel::class, MachineModelPolicy::class);
         Gate::policy(FlowchartScript::class, FlowchartScriptPolicy::class);
         Gate::policy(AiModel::class, AiModelPolicy::class);
+        Gate::policy(AiBox::class, AiBoxPolicy::class);
 
         // Email Logging & Suppression
         // ORDER MATTERS: StopSuppressedEmail must be registered first.

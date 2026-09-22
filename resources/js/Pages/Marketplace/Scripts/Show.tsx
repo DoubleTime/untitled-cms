@@ -17,6 +17,7 @@ interface ScriptShowProps extends PageProps {
     script: FlowchartScript;
     revisions: Revision[];
     downloads: DownloadRow[];
+    downloadStats: { total: number; unique_boxes: number };
     allowedExtensions: string[];
     maxUploadKb: number;
 }
@@ -25,6 +26,7 @@ export default function Show({
     script,
     revisions,
     downloads,
+    downloadStats,
     allowedExtensions,
     maxUploadKb,
 }: ScriptShowProps) {
@@ -69,6 +71,8 @@ export default function Show({
                                     <Badge variant="outline">No released Revision</Badge>
                                 )}
                                 <Badge variant="outline">{revisions.length} Revisions</Badge>
+                                <Badge variant="outline">{downloadStats.total} Downloads</Badge>
+                                <Badge variant="outline">{downloadStats.unique_boxes} AI Boxes</Badge>
                             </div>
                         </div>
                     </div>

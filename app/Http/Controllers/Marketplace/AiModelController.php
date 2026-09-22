@@ -116,6 +116,7 @@ class AiModelController extends Controller
             'aiModel' => $aiModel,
             'revisions' => $this->revisionPayload($aiModel),
             'downloads' => $this->downloadPayload($aiModel),
+            'downloadStats' => $this->downloadStats($aiModel),
             'canEdit' => $request->user()->can('update', $aiModel),
             'canDelete' => $request->user()->can('delete', $aiModel),
             'canUpload' => $request->user()->can('upload', $aiModel),
@@ -310,7 +311,30 @@ class AiModelController extends Controller
         return $aiModel->revisions()
             ->with(['uploader:id,name', 'releaser:id,name'])
             ->withCount('downloads')
+            // How many distinct AI Boxes pulled this Revision, alongside the raw
+            // total: one box retrying is not the same as ten boxes installing.
+            ->addSelect(['unique_boxes_count' => Download::query()
+                ->selectRaw('count(distinct ai_box_id)')
+                ->whereColumn('revision_id', 'revisions.id')])
             ->get();
+    }
+
+    /**
+     * Totals for the header: every Download of this entry, and how many distinct
+     * AI Boxes are behind them.
+     *
+     * @return array<string, int>
+     */
+    private function downloadStats(AiModel $aiModel): array
+    {
+        $base = Download::query()
+            ->where('revisable_type', $aiModel->getMorphClass())
+            ->where('revisable_id', $aiModel->getKey());
+
+        return [
+            'total' => (clone $base)->count(),
+            'unique_boxes' => (clone $base)->whereNotNull('ai_box_id')->distinct()->count('ai_box_id'),
+        ];
     }
 
     private function downloadPayload(AiModel $aiModel)

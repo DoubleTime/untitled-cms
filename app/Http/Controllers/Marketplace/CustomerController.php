@@ -64,6 +64,11 @@ class CustomerController extends Controller
                 ->withCount('tokens')
                 ->orderBy('name')
                 ->get(['id', 'name', 'email', 'is_active', 'created_at', 'customer_id']),
+            // The Customer's AI Boxes, for the AI Boxes tab (Phase 5).
+            'aiBoxes' => $customer->aiBoxes()
+                ->orderByDesc('last_seen_at')
+                ->get(['id', 'motherboard_uuid', 'name', 'location', 'status', 'last_seen_at', 'customer_id']),
+            'canViewAiBoxes' => $request->user()->hasPermission('ai_boxes.view'),
             'canEdit' => $request->user()->can('update', $customer),
             'canDelete' => $request->user()->can('delete', $customer),
         ]);

@@ -60,6 +60,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           { title: "Machine Models", url: route('admin.marketplace.machine-models.index') },
         ]
       : []),
+    ...(permissions.includes('ai_boxes.view')
+      ? [{ title: "AI Boxes", url: route('admin.marketplace.ai-boxes.index') }]
+      : []),
+    ...(permissions.includes('downloads.view')
+      ? [{ title: "Downloads", url: route('admin.marketplace.downloads.index') }]
+      : []),
   ];
 
   // Helper to determine if a route is active

@@ -17,7 +17,9 @@ class DownloadFactory extends Factory
     {
         return [
             'revision_id' => Revision::factory(),
-            'revisable_type' => AiModel::class,
+            // The morph alias, not the class name — Relation::enforceMorphMap()
+            // means that is what a real Download row carries.
+            'revisable_type' => 'ai_model',
             'revisable_id' => AiModel::factory(),
             'user_id' => User::factory(),
             'ai_box_id' => null,

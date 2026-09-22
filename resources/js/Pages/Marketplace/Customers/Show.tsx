@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { Customer, CustomerUser, PageProps } from '@/types';
+import { AiBox, Customer, CustomerUser, PageProps } from '@/types';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { Input } from '@/Components/ui/input';
@@ -28,15 +28,26 @@ import { DataTableToolbar } from '@/Components/Common/DataTableToolbar';
 import { Edit, KeyRound, MoreHorizontal, Plus, Power, ShieldOff } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useFlashToast } from '@/hooks/use-flash-toast';
+import AiBoxStatusBadge from '@/Components/Marketplace/AiBoxStatusBadge';
+import { formatRelative } from '@/Components/Marketplace/format';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/Components/ui/table';
 
 interface CustomerShowProps extends PageProps {
     customer: Customer;
     customerUsers: CustomerUser[];
+    aiBoxes: AiBox[];
 }
 
-export default function Show({ customer, customerUsers }: CustomerShowProps) {
+export default function Show({ customer, customerUsers, aiBoxes }: CustomerShowProps) {
     useFlashToast();
-    const { canEdit } = usePage<PageProps>().props;
+    const { canEdit, canViewAiBoxes } = usePage<PageProps>().props;
     const [createOpen, setCreateOpen] = useState(false);
 
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
@@ -197,6 +208,7 @@ export default function Show({ customer, customerUsers }: CustomerShowProps) {
                 <Tabs defaultValue="users">
                     <TabsList>
                         <TabsTrigger value="users">Customer Users</TabsTrigger>
+                        <TabsTrigger value="ai-boxes">AI Boxes</TabsTrigger>
                         <TabsTrigger value="details">Details</TabsTrigger>
                     </TabsList>
 
@@ -223,6 +235,65 @@ export default function Show({ customer, customerUsers }: CustomerShowProps) {
                         <DataTable data={customerUsers} columns={columns}>
                             {({ table }) => <DataTableToolbar table={table} searchKey="name" />}
                         </DataTable>
+                    </TabsContent>
+
+                    <TabsContent value="ai-boxes" className="mt-4 space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                            AI Boxes register themselves the first time one of this Customer's users signs in
+                            from RPA-TOOL. Labelling, acknowledging and blocking happen on the AI Box page.
+                        </p>
+
+                        {aiBoxes.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                                No AI Box has ever signed in for this Customer.
+                            </p>
+                        ) : (
+                            <div className="rounded-md border overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Motherboard UUID</TableHead>
+                                            <TableHead>Name</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead>Last seen</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {aiBoxes.map((box) => (
+                                            <TableRow key={box.id}>
+                                                <TableCell className="font-mono text-xs">
+                                                    {canViewAiBoxes ? (
+                                                        <Link
+                                                            href={route(
+                                                                'admin.marketplace.ai-boxes.show',
+                                                                box.id
+                                                            )}
+                                                            className="hover:underline"
+                                                        >
+                                                            {box.motherboard_uuid}
+                                                        </Link>
+                                                    ) : (
+                                                        box.motherboard_uuid
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-sm">
+                                                    {box.name || 'Unlabelled'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <AiBoxStatusBadge status={box.status} />
+                                                </TableCell>
+                                                <TableCell
+                                                    className="text-sm text-muted-foreground"
+                                                    title={box.last_seen_at ?? undefined}
+                                                >
+                                                    {formatRelative(box.last_seen_at)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        )}
                     </TabsContent>
 
                     <TabsContent value="details" className="mt-4">

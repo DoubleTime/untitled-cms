@@ -12,9 +12,11 @@ use App\Http\Controllers\EmailLogController;
 use App\Http\Controllers\EmailWebhookController;
 use App\Http\Controllers\FeedController;
 use App\Http\Controllers\LlmsController;
+use App\Http\Controllers\Marketplace\AiBoxController;
 use App\Http\Controllers\Marketplace\AiModelController;
 use App\Http\Controllers\Marketplace\CustomerController;
 use App\Http\Controllers\Marketplace\CustomerUserController;
+use App\Http\Controllers\Marketplace\DownloadController;
 use App\Http\Controllers\Marketplace\FlowchartScriptController;
 use App\Http\Controllers\Marketplace\MachineBrandController;
 use App\Http\Controllers\Marketplace\MachineModelController;
@@ -181,6 +183,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'admin']
             ->name('ai-models.revisions.download');
         Route::delete('/ai-models/{ai_model}/revisions/{revision}', [AiModelController::class, 'destroyRevision'])
             ->name('ai-models.revisions.destroy');
+
+        // AI Boxes (Phase 5) — auto-registered by RPA-TOOL, so no create/store.
+        Route::resource('ai-boxes', AiBoxController::class)->only(['index', 'show', 'edit', 'update', 'destroy']);
+        Route::post('/ai-boxes/{ai_box}/block', [AiBoxController::class, 'block'])->name('ai-boxes.block');
+        Route::post('/ai-boxes/{ai_box}/unblock', [AiBoxController::class, 'unblock'])->name('ai-boxes.unblock');
+        Route::post('/ai-boxes/{ai_box}/activate', [AiBoxController::class, 'activate'])->name('ai-boxes.activate');
+
+        // Download log (Phase 5)
+        Route::get('/downloads', [DownloadController::class, 'index'])
+            ->middleware('can:downloads.view')->name('downloads.index');
     });
 
     // Activity Log

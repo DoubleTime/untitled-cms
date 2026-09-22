@@ -16,6 +16,7 @@ interface AiModelShowProps extends PageProps {
     aiModel: AiModel;
     revisions: Revision[];
     downloads: DownloadRow[];
+    downloadStats: { total: number; unique_boxes: number };
     allowedExtensions: string[];
     maxUploadKb: number;
 }
@@ -24,6 +25,7 @@ export default function Show({
     aiModel,
     revisions,
     downloads,
+    downloadStats,
     allowedExtensions,
     maxUploadKb,
 }: AiModelShowProps) {
@@ -55,6 +57,8 @@ export default function Show({
                                 <Badge variant="outline">No released Revision</Badge>
                             )}
                             <Badge variant="outline">{revisions.length} Revisions</Badge>
+                            <Badge variant="outline">{downloadStats.total} Downloads</Badge>
+                            <Badge variant="outline">{downloadStats.unique_boxes} AI Boxes</Badge>
                             {aiModel.framework && <Badge variant="outline">{aiModel.framework}</Badge>}
                             {aiModel.input_size && <Badge variant="outline">{aiModel.input_size}</Badge>}
                         </div>
