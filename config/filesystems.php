@@ -82,6 +82,26 @@ return [
             'throw' => true,
         ],
 
+        // Marketplace Revision files (.h5 / .zip). Private and never served
+        // directly — downloads go through the authenticated endpoints so each
+        // fetch is logged (docs/adr/0003).
+        'marketplace' => [
+            'driver' => 'local',
+            'root' => storage_path('app/marketplace'),
+            'visibility' => 'private',
+            'permissions' => [
+                'file' => [
+                    'public' => 0644,
+                    'private' => 0644,
+                ],
+                'dir' => [
+                    'public' => 0755,
+                    'private' => 0755,
+                ],
+            ],
+            'throw' => true,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

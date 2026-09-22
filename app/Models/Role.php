@@ -109,6 +109,44 @@ class Role extends Model
 
             // System
             'manage-settings', // used in SettingController + CheckMaintenanceMode bypass
+
+            // Marketplace — Customers
+            'customers.view',
+            'customers.create',
+            'customers.edit',
+            'customers.delete',
+
+            // Marketplace — Machines (brands + models)
+            'machines.view',
+            'machines.create',
+            'machines.edit',
+            'machines.delete',
+
+            // Marketplace — FlowChart Scripts
+            'scripts.view',
+            'scripts.create',
+            'scripts.edit',
+            'scripts.delete',
+            'scripts.upload',       // upload a new Revision
+            'scripts.release',      // release / deprecate a Revision
+            'scripts.hard_delete',  // purge a soft-deleted entry and its files
+
+            // Marketplace — AI Models
+            'ai_models.view',
+            'ai_models.create',
+            'ai_models.edit',
+            'ai_models.delete',
+            'ai_models.upload',
+            'ai_models.release',
+            'ai_models.hard_delete',
+
+            // Marketplace — AI Boxes
+            'ai_boxes.view',
+            'ai_boxes.edit',
+            'ai_boxes.block',
+
+            // Marketplace — Downloads
+            'downloads.view',
         ];
     }
 }

@@ -4,6 +4,30 @@ Append-only record of wiki operations. Format: `## [YYYY-MM-DD] <op> | <title>`
 
 ---
 
+## [2026-09-22] update | Marketplace Phase 1 (Foundation)
+- Added [modules/marketplace](modules/marketplace.md): the Unysis Marketplace catalogue —
+  vocabulary pointer to `CONTEXT.md`, the nine new tables, the polymorphic Revision design,
+  the new permission groups, the private `marketplace` disk, the access model from the three
+  ADRs, and the five phases still outstanding.
+- Schema: `database/migrations/2026_09_22_000001_create_marketplace_tables.php` creates
+  `customers`, `machine_brands`, `machine_models`, `flowchart_scripts`,
+  `flowchart_script_images`, `ai_models`, `revisions`, `ai_boxes`, `downloads`, and adds a
+  nullable indexed `users.customer_id`. Repo conventions held: ULID keys, indexed reference
+  columns, no FK constraints, soft deletes on the two catalogue entry tables. Status columns
+  are plain strings with a default so the DDL runs unchanged on SQLite and PostgreSQL.
+- Models: nine plain Eloquent models plus `App\Models\Concerns\HasRevisions`
+  (`revisions()`, `latestReleasedRevision()`, `downloads()`), shared by `FlowchartScript`
+  and `AiModel`. `User` gained `customer()` and `isCustomerUser()`.
+- Permissions: 26 new strings appended to `Role::availablePermissions()` in five groups.
+  `RoleSeeder` syncs admin from that list, so admin picked them up with no enumeration; it
+  also seeds a `customer` role with no permissions and `backend_access = false`.
+- Naming trap worth remembering: `App\Models\AiModel` (a marketplace catalogue entry) is
+  unrelated to `App\Models\AiHub` (the CMS's own AI provider config).
+- Also updated (outside the wiki, same commit): `AGENTS.md` gained a `### Marketplace`
+  list under Database; `config/marketplace.php` and a private `marketplace` disk in
+  `config/filesystems.php`; `.env.example` gained the three `MARKETPLACE_*` keys.
+- Suite: 142 tests / 360 assertions green on SQLite in-memory (16 of them new).
+
 ## [2026-09-21] update | PostgreSQL migration documented (Task 8)
 - Documents the completed move off MongoDB: all 16 models are now plain Eloquent
   (`HasUlidKey` trait for ULID string primary keys), a full relational schema was
@@ -266,3 +290,14 @@ in `.env` only (RESEND_KEY, RESEND_WEBHOOK_SECRET), MongoDB TTL 90d (EMAIL_LOG_T
 webhook handler queued as ProcessResendWebhook job (updateOrCreate race-safety), CTR as
 primary AI signal, HMAC-signed unsubscribe tokens, List-Unsubscribe header required.
 New wiki page to create: [modules/email](modules/email.md) once implementation begins.
+
+## [2026-09-21] update | Agent workflow config: subagent delegation + skill docs
+Added `## Agent skills` block to AGENTS.md (GitHub issue tracker via `gh`, single-context
+domain docs) with `docs/agents/issue-tracker.md` and `docs/agents/domain.md`. Added
+`## Building Code: Delegate to a Subagent`: implementation work dispatches to a subagent
+with an explicit model — `opus` for services/vault pipes/permissions/middleware, security
+paths, multi-layer or schema changes; `sonnet` for mechanical single-file work. Subagents
+must run Pint / `npm run build` and report real test output; the dispatcher reviews the diff.
+
+## [2026-09-22] ingest | Unysis Marketplace domain model and plan
+- Added `CONTEXT.md` (glossary), `docs/adr/0001–0003`, `docs/marketplace-plan.md`. No code yet.

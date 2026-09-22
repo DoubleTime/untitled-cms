@@ -144,6 +144,20 @@ All models are plain Eloquent (`Illuminate\Database\Eloquent\Model`; `User` exte
 
 Key tables: `users`, `roles`, `role_user`, `pages`, `banners`, `vault_files`, `vault_folders`, `activity_logs`, `ai_hubs`, `chat_sessions`, `menus`, `settings`, `redirects`, `email_logs`, `suppressed_emails`.
 
+### Marketplace
+
+Catalogue schema added by `2026_09_22_000001_create_marketplace_tables.php`. Vocabulary is fixed in `CONTEXT.md`; details in [modules/marketplace](wiki/modules/marketplace.md).
+
+- `customers` — a company owning AI Boxes; `users.customer_id` (nullable) marks a Customer User
+- `machine_brands`, `machine_models` — how the catalogue is organised; unique name per brand
+- `flowchart_scripts`, `flowchart_script_images` — packaged automation sequences and their Vault-backed Preview Images
+- `ai_models` — standalone trained inference models (unrelated to `ai_hubs`)
+- `revisions` — polymorphic (`revisable`) numbered uploads shared by both entry types; unique number per revisable
+- `ai_boxes` — edge devices keyed by a unique `motherboard_uuid`
+- `downloads` — one logged fetch of a Revision file
+
+Revision files live on the private `marketplace` disk (`config/marketplace.php`), not in the Vault.
+
 ## Coding Style & Naming Conventions
 
 Follow `.editorconfig`: UTF-8, LF endings, 4-space indentation, and no trailing whitespace. Use `2` spaces in YAML files. PHP code should follow Laravel conventions and be kept Pint-clean. React/TypeScript files use PascalCase for components, camelCase for functions and variables, and descriptive names that match the feature area, such as `resources/js/Pages/Vault/Index.tsx`.
@@ -185,3 +199,48 @@ Recent commits use conventional-style prefixes with optional scopes, for example
 ## Security & Configuration Tips
 
 Do not commit secrets or environment-specific values. Local setup expects `.env`, PostgreSQL credentials, and a valid app key. If you change upload, auth, or AI-related code, call out any new permissions, queue jobs, or environment variables in the PR notes.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as GitHub issues on `DoubleTime/untitled-cms`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root (created lazily by `/domain-modeling`). See `docs/agents/domain.md`.
+
+## Building Code: Delegate to a Subagent
+
+When the task is **writing or changing code** (new features, refactors, bug fixes, migrations, tests), do not implement it inline. Dispatch a subagent with the `Agent` tool and pick the model by difficulty.
+
+This applies to implementation work only. Answering questions, reading code, planning, reviewing, and one-line edits stay inline.
+
+### Model selection
+
+Pass `model` explicitly on every dispatch — never rely on the default.
+
+**Use `opus`** when any of these hold:
+- Touches the service layer (`app/Services/`), the vault pipe pipeline (`app/Vault/Pipes/`), permissions (`Role::availablePermissions()`, policies, `CheckPermission`), or middleware ordering in `bootstrap/app.php`
+- Security-relevant: `SafeHttpClient`/SSRF paths, `HtmlSanitizer` profiles, upload validation, auth or Socialite flows, email webhook handlers
+- Spans backend + frontend + migration together, or changes more than ~5 files
+- Database schema changes, or anything that must work on both SQLite (tests) and PostgreSQL (production)
+- Architecture is unsettled — the approach itself is part of the work
+
+**Use `sonnet`** when the work is mechanical and the shape is already decided:
+- Single Inertia page or React component under `resources/js/`
+- Adding a controller action that follows an existing sibling exactly
+- Writing tests against an interface that already exists
+- Copy changes, Tailwind/styling, Pint-only formatting passes
+- Mapping a settings key through `SettingsService` following an existing key
+
+When genuinely between the two, pick `opus`.
+
+### Dispatch rules
+
+- Give the subagent the full task, not a fragment: the acceptance criteria, the files it may touch, and the relevant conventions from this file.
+- Point it at `wiki/index.md` and the module page for the area it is changing.
+- Require it to run `./vendor/bin/pint` for PHP changes and `npm run build` (which runs `tsc`) for TypeScript changes before reporting done.
+- Require it to report which tests it ran and their actual output. Do not accept "tests pass" without it.
+- Run independent subagents in parallel in a single message. Do not fan out subagents that would edit the same file.
+- Review the subagent's diff yourself before reporting completion. The subagent's report is a claim, not a verification.

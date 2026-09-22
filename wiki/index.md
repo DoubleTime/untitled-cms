@@ -40,6 +40,7 @@ Content catalog for the untitled-cms wiki. Updated on every ingest.
 | [modules/vault](modules/vault.md) | Media manager: upload pipeline, config, storage |
 | [modules/permissions](modules/permissions.md) | Role-based access control, policy classes, caching |
 | [modules/ai-hub](modules/ai-hub.md) | AI provider config, usage tracking, integration patterns |
+| [modules/marketplace](modules/marketplace.md) | Unysis Marketplace: catalogue schema, revisions, permissions, storage |
 | [modules/email](modules/email.md) | Resend email pipeline, suppression, webhooks, unsubscribe flow |
 
 ---

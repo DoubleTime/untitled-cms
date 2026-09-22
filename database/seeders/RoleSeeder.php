@@ -46,5 +46,13 @@ class RoleSeeder extends Seeder
             'pages.view',
             'media.view',
         ]);
+
+        // Customer: Customer Users signing in from RPA-TOOL — no permissions and no
+        // backend access at all. They reach the catalogue only through the API.
+        $customerRole = Role::updateOrCreate(
+            ['slug' => 'customer'],
+            ['name' => 'customer', 'backend_access' => false, 'is_active' => true]
+        );
+        $customerRole->syncPermissions([]);
     }
 }

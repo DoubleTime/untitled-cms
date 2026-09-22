@@ -6,6 +6,7 @@ use App\Models\Concerns\HasUlidKey;
 use App\Traits\HasRoles;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -24,6 +25,7 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $fillable = [
         'name',
         'email',
+        'customer_id',
         'password',
         'is_active',
         'email_verified_at',
@@ -63,6 +65,25 @@ class User extends Authenticatable implements MustVerifyEmail
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class);
+    }
+
+    /**
+     * The Customer this user belongs to — set only for Customer Users, who reach
+     * the catalogue through RPA-TOOL. Team Members leave it null.
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    /**
+     * True when the user is a Customer User (belongs to a Customer).
+     * Not an authorisation check on its own — admin access is gated by
+     * canAccessBackend(), and the Customer label is never an access wall.
+     */
+    public function isCustomerUser(): bool
+    {
+        return $this->customer_id !== null;
     }
 
     /**

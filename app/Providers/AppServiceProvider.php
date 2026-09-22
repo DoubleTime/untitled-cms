@@ -5,7 +5,9 @@ namespace App\Providers;
 use App\Listeners\InjectUnsubscribeHeaders;
 use App\Listeners\LogSentEmail;
 use App\Listeners\StopSuppressedEmail;
+use App\Models\AiModel;
 use App\Models\EmailLog;
+use App\Models\FlowchartScript;
 use App\Models\Setting;
 use App\Policies\EmailLogPolicy;
 use App\Policies\SettingPolicy;
@@ -13,6 +15,7 @@ use App\Services\EmailWebhooks\Contracts\WebhookProvider;
 use App\Services\EmailWebhooks\MailgunWebhookProvider;
 use App\Services\EmailWebhooks\ResendWebhookProvider;
 use App\Services\EmailWebhooks\SendGridWebhookProvider;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Support\Facades\Event;
@@ -55,6 +58,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Marketplace polymorphic Revision/Download rows store these short aliases in
+        // revisable_type instead of class names; keys match config/marketplace.php.
+        Relation::enforceMorphMap([
+            'ai_model' => AiModel::class,
+            'flowchart_script' => FlowchartScript::class,
+        ]);
+
         // Re-register the Resend mail transport manually because resend/resend-laravel
         // is excluded from auto-discovery (see composer.json) to prevent its built-in
         // webhook route from being registered — the app uses its own /webhooks/email endpoint.
