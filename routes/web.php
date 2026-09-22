@@ -12,8 +12,10 @@ use App\Http\Controllers\EmailLogController;
 use App\Http\Controllers\EmailWebhookController;
 use App\Http\Controllers\FeedController;
 use App\Http\Controllers\LlmsController;
+use App\Http\Controllers\Marketplace\AiModelController;
 use App\Http\Controllers\Marketplace\CustomerController;
 use App\Http\Controllers\Marketplace\CustomerUserController;
+use App\Http\Controllers\Marketplace\FlowchartScriptController;
 use App\Http\Controllers\Marketplace\MachineBrandController;
 use App\Http\Controllers\Marketplace\MachineModelController;
 use App\Http\Controllers\MenuController;
@@ -141,6 +143,44 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'admin']
             ->name('customers.users.revoke-tokens');
         Route::post('/customers/{customer}/users/{user}/send-password-reset', [CustomerUserController::class, 'sendPasswordReset'])
             ->name('customers.users.send-password-reset');
+
+        // Catalogue — FlowChart Scripts (Phase 3)
+        Route::resource('scripts', FlowchartScriptController::class);
+        Route::put('/scripts/{script}/images', [FlowchartScriptController::class, 'syncImages'])
+            ->name('scripts.images.sync');
+        Route::post('/scripts/{script}/restore', [FlowchartScriptController::class, 'restore'])
+            ->withTrashed()->name('scripts.restore');
+        Route::delete('/scripts/{script}/force', [FlowchartScriptController::class, 'forceDestroy'])
+            ->withTrashed()->name('scripts.force-destroy');
+
+        Route::post('/scripts/{script}/revisions', [FlowchartScriptController::class, 'storeRevision'])
+            ->middleware('throttle:30,1')->name('scripts.revisions.store');
+        Route::post('/scripts/{script}/revisions/{revision}/release', [FlowchartScriptController::class, 'releaseRevision'])
+            ->name('scripts.revisions.release');
+        Route::post('/scripts/{script}/revisions/{revision}/deprecate', [FlowchartScriptController::class, 'deprecateRevision'])
+            ->name('scripts.revisions.deprecate');
+        Route::get('/scripts/{script}/revisions/{revision}/download', [FlowchartScriptController::class, 'downloadRevision'])
+            ->name('scripts.revisions.download');
+        Route::delete('/scripts/{script}/revisions/{revision}', [FlowchartScriptController::class, 'destroyRevision'])
+            ->name('scripts.revisions.destroy');
+
+        // Catalogue — AI Models (Phase 3)
+        Route::resource('ai-models', AiModelController::class);
+        Route::post('/ai-models/{ai_model}/restore', [AiModelController::class, 'restore'])
+            ->withTrashed()->name('ai-models.restore');
+        Route::delete('/ai-models/{ai_model}/force', [AiModelController::class, 'forceDestroy'])
+            ->withTrashed()->name('ai-models.force-destroy');
+
+        Route::post('/ai-models/{ai_model}/revisions', [AiModelController::class, 'storeRevision'])
+            ->middleware('throttle:30,1')->name('ai-models.revisions.store');
+        Route::post('/ai-models/{ai_model}/revisions/{revision}/release', [AiModelController::class, 'releaseRevision'])
+            ->name('ai-models.revisions.release');
+        Route::post('/ai-models/{ai_model}/revisions/{revision}/deprecate', [AiModelController::class, 'deprecateRevision'])
+            ->name('ai-models.revisions.deprecate');
+        Route::get('/ai-models/{ai_model}/revisions/{revision}/download', [AiModelController::class, 'downloadRevision'])
+            ->name('ai-models.revisions.download');
+        Route::delete('/ai-models/{ai_model}/revisions/{revision}', [AiModelController::class, 'destroyRevision'])
+            ->name('ai-models.revisions.destroy');
     });
 
     // Activity Log

@@ -13,8 +13,10 @@ use App\Models\MachineBrand;
 use App\Models\MachineModel;
 use App\Models\Setting;
 use App\Models\User;
+use App\Policies\AiModelPolicy;
 use App\Policies\CustomerPolicy;
 use App\Policies\EmailLogPolicy;
+use App\Policies\FlowchartScriptPolicy;
 use App\Policies\MachineBrandPolicy;
 use App\Policies\MachineModelPolicy;
 use App\Policies\SettingPolicy;
@@ -88,6 +90,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Customer::class, CustomerPolicy::class);
         Gate::policy(MachineBrand::class, MachineBrandPolicy::class);
         Gate::policy(MachineModel::class, MachineModelPolicy::class);
+        Gate::policy(FlowchartScript::class, FlowchartScriptPolicy::class);
+        Gate::policy(AiModel::class, AiModelPolicy::class);
 
         // Email Logging & Suppression
         // ORDER MATTERS: StopSuppressedEmail must be registered first.

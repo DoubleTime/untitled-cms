@@ -2,7 +2,7 @@
 
 > Overview of app/Services/* and how they relate to each other.
 
-Last updated: 2026-07-12
+Last updated: 2026-09-22
 
 ## Overview
 
@@ -51,6 +51,27 @@ HTML purification helpers for user-authored rich content.
 ### ActivityLogger
 Static `log()` used by controllers to write `activity_logs`. Fails silently so logging
 never breaks the user flow.
+
+### ClamAvScanner
+The one ClamAV implementation. `scan(string $path): ?string` streams a file to clamd (INSTREAM over TCP)
+and returns the threat name or null. It owns the fail-open / fail-closed decision from
+`vault.clamav_fail_closed`. Used by `App\Vault\Pipes\SandboxedScan` and by
+`Marketplace\RevisionService`; do not re-implement the socket protocol anywhere else.
+See [modules/vault](vault.md).
+
+### Marketplace\RevisionService
+Uploads and lifecycle for Revisions of a FlowChart Script or an AI Model. Validates the extension
+(from `config/marketplace.php`, keyed by morph alias), refuses double extensions, enforces the size cap,
+verifies magic bytes (zip / HDF5), optionally scans with `ClamAvScanner`, numbers the Revision
+`max + 1` per revisable inside a transaction, stores it on the private `marketplace` disk and records the
+SHA-256. `release()` / `deprecate()` walk the one-way `draft -> released -> deprecated` lifecycle and
+throw `App\Exceptions\Marketplace\InvalidRevisionTransition` otherwise; `deleteFile()` backs hard
+delete. See [modules/marketplace](marketplace.md).
+
+### Marketplace\DownloadService
+`record()` writes one `downloads` row (source `web` from the admin, `api` from RPA-TOOL);
+`stream()` returns the file as a `StreamedResponse` under its original filename with
+`X-Checksum-SHA256` and `X-Revision-Number`. Download rows are never deleted.
 
 ### EmailWebhooks/*
 Provider adapters (Resend, Mailgun, SendGrid) that normalize inbound webhook events.

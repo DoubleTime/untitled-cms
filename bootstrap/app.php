@@ -10,6 +10,7 @@ use App\Http\Middleware\VerifySessionVersion;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -45,6 +46,22 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // A request body larger than php.ini's post_max_size is discarded by PHP
+        // before validation runs, so the form request's `max:` rule never fires and
+        // the user would otherwise see a bare 413. Turn it into a flash message.
+        $exceptions->render(function (PostTooLargeException $e, Request $request) {
+            $maxMb = round(((int) config('marketplace.max_upload_kb')) / 1024);
+
+            $message = "The upload was rejected before it finished: the request body exceeded the web server's limit. "
+                ."Files up to {$maxMb} MB are allowed — if this one was smaller, raise upload_max_filesize and post_max_size on the server.";
+
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['message' => $message], 413);
+            }
+
+            return back()->with('error', $message);
+        });
 
         $exceptions->render(function (Throwable $e, Request $request) {
             $response = null;

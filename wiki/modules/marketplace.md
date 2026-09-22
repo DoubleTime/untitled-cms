@@ -2,14 +2,16 @@
 
 > Catalogue of AI Models and FlowChart Scripts that run on UNYSIS AI Boxes, fetched by RPA-TOOL
 
-Last updated: 2026-09-22 (Phase 2)
+Last updated: 2026-09-22 (Phase 3)
 
 Vocabulary is fixed in [`CONTEXT.md`](../../CONTEXT.md) — use those terms verbatim in code, UI copy and docs.
 The implementation plan is [`docs/marketplace-plan.md`](../../docs/marketplace-plan.md); decisions are in [`docs/adr/`](../../docs/adr).
 
-**Status: Phase 2 (Customers & Machines admin) shipped.** Phase 1 gave the schema, models,
-permissions, config and the private disk; Phase 2 adds the Customers, Customer User and Machines
-admin plus the web-login rejection. Catalogue entries, Revisions and the RPA-TOOL API are still to come.
+**Status: Phase 3 (Catalogue admin) shipped.** Phase 1 gave the schema, models, permissions, config
+and the private disk; Phase 2 added the Customers, Customer User and Machines admin plus the
+web-login rejection; Phase 3 adds the FlowChart Scripts and AI Models admin, `RevisionService`,
+`DownloadService`, the Revision lifecycle, Preview Images and soft/hard delete. The RPA-TOOL API is
+still to come.
 
 ## What it is
 
@@ -54,8 +56,10 @@ and PostgreSQL (production). The repo uses no PHP backed enums; the allowed valu
 `AiModel`, `Revision`, `AiBox`, `Download`. All plain Eloquent.
 
 - `Revision` is polymorphic (`revisable()` morphTo) so both entry types share one revision/download
-  implementation while staying separate entities in the UI and the API. No morph map is registered,
-  so `revisable_type` holds the FQCN.
+  implementation while staying separate entities in the UI and the API. `Relation::enforceMorphMap()`
+  in `AppServiceProvider` maps the aliases, so `revisable_type` holds `flowchart_script` / `ai_model`,
+  and `getMorphClass()` is what `RevisionService` keys `config('marketplace.allowed_extensions')` and
+  the storage path on.
 - `App\Models\Concerns\HasRevisions` is used by `FlowchartScript` and `AiModel` and provides
   `revisions()` (morphMany, `number` desc), `latestReleasedRevision()` (ignores draft and deprecated),
   and `downloads()`.
@@ -218,6 +222,130 @@ backend access.
 `RequireAdminAccess` already redirects them away from `/admin/*` because the `customer` role has
 `backend_access = false`; the login rejection is the layer in front of it.
 
+## Services (Phase 3)
+
+`app/Services/Marketplace/`:
+
+### RevisionService
+
+`upload(FlowchartScript|AiModel $revisable, UploadedFile $file, string $changeNote, User $uploader): Revision`
+
+1. **Extension** — must be in `config('marketplace.allowed_extensions')[$revisable->getMorphClass()]`
+   (`flowchart_script` -> `zip`, `ai_model` -> `h5`). The morph alias comes from `getMorphClass()`, so the
+   enforced morph map in `AppServiceProvider` is the single source of the key.
+2. **Double extension** — the same idea as `app/Vault/Pipes/DetectDoubleExtension.php`, reimplemented in
+   the service because Revision files never enter the Vault pipeline. `payload.exe.zip` is refused.
+3. **Size** — `config('marketplace.max_upload_kb')` (1 GB by default).
+4. **Magic bytes** — a `.zip` must start with `PK\x03\x04` / `PK\x05\x06` / `PK\x07\x08`, with
+   `ZipArchive::open()` as the fallback verdict; a `.h5` must carry the HDF5 superblock
+   `\x89HDF\r\n\x1a\n`.
+5. **ClamAV** — when `vault.clamav_enabled` is set, the file goes through `App\Services\ClamAvScanner`
+   (the same implementation the Vault pipe uses — see [vault](vault.md)). A hit rejects the upload.
+
+Every failure is a `ValidationException` on the `file` key, so the Inertia form shows it inline.
+
+Numbering is `max(number) + 1` **per revisable**, taken inside a `DB::transaction`; a unique-index clash
+(concurrent upload) is retried once. The file is stored on `config('marketplace.disk')` at
+`{morph alias}/{revisable id}/{number}.{ext}`, and the row records `sha256` (`hash_file`),
+`original_filename`, `size_bytes`, `mime`, `uploaded_by` and status `draft`.
+
+Lifecycle — one way only, `App\Exceptions\Marketplace\InvalidRevisionTransition` otherwise:
+
+```
+        release()                 deprecate()
+draft ------------->  released  ------------->  deprecated
+
+   ^                                                |
+   |                no path back                    |
+   +------------------------------------------------+
+                      (never allowed)
+```
+
+- `release(Revision, User)` — only from `draft`; sets `released_by` and `released_at`.
+- `deprecate(Revision, User)` — only from `released`; sets `deprecated_at`.
+- `deleteFile(Revision)` — removes the stored file; used by hard delete.
+
+### DownloadService
+
+- `record(Revision, ?User, ?AiBox, string $source, Request): Download` — `web` in this phase, `api` in
+  Phase 4.
+- `stream(Revision): StreamedResponse` — `Storage::disk('marketplace')->download()` under the
+  `original_filename`, with `X-Checksum-SHA256` and `X-Revision-Number` headers so the caller can verify
+  what it got.
+
+### Storage layout
+
+```
+storage/app/marketplace/
+  flowchart_script/{script id}/1.zip
+  flowchart_script/{script id}/2.zip
+  ai_model/{ai model id}/1.h5
+```
+
+The disk is private; nothing under it is web-reachable. The only way out is the authenticated download
+route, which records a Download first.
+
+### php.ini on the VPS
+
+The app's own cap is `marketplace.max_upload_kb` (1 GB), enforced by `StoreRevisionRequest`'s `max:` rule
+in kilobytes. PHP discards a body larger than `post_max_size` **before** validation runs, so
+`upload_max_filesize` and `post_max_size` must be raised to at least the same figure on the VPS (and
+`max_execution_time` plus nginx's `client_max_body_size` with them). When PHP does reject a body first,
+`bootstrap/app.php` turns the resulting `PostTooLargeException` into a flash `error` instead of a bare 413.
+
+## Catalogue admin (Phase 3)
+
+| Route name | Method / path | Permission |
+|---|---|---|
+| `admin.marketplace.scripts.*` | resource incl. `show` | `scripts.view/create/edit/delete` |
+| `admin.marketplace.scripts.images.sync` | `PUT scripts/{script}/images` | `scripts.edit` |
+| `admin.marketplace.scripts.restore` | `POST scripts/{script}/restore` | `scripts.delete` |
+| `admin.marketplace.scripts.force-destroy` | `DELETE scripts/{script}/force` | `scripts.hard_delete` |
+| `admin.marketplace.scripts.revisions.store` | `POST scripts/{script}/revisions` (`throttle:30,1`) | `scripts.upload` |
+| `admin.marketplace.scripts.revisions.release` | `POST .../{revision}/release` | `scripts.release` |
+| `admin.marketplace.scripts.revisions.deprecate` | `POST .../{revision}/deprecate` | `scripts.release` |
+| `admin.marketplace.scripts.revisions.download` | `GET .../{revision}/download` | `scripts.view` |
+| `admin.marketplace.scripts.revisions.destroy` | `DELETE .../{revision}` | `scripts.hard_delete` |
+| `admin.marketplace.ai-models.*` | the same set, minus images | `ai_models.*` |
+
+`FlowchartScriptPolicy` and `AiModelPolicy` add `upload`, `release` and `hardDelete` on top of the usual
+five and are registered in `AppServiceProvider::boot()`. Routes that take a soft-deleted entry
+(`restore`, `force`) are declared `->withTrashed()`. A Revision that does not belong to the entry in the
+URL 404s (`assertBelongsTo`).
+
+**Deletes.** `destroy` soft deletes (`scripts.delete`) and the index has a *Show deleted* toggle with
+Restore. `force` (`scripts.hard_delete`) deletes every Revision file, the Revision rows and the Preview
+Image links, then `forceDelete()`s the entry. Hard-deleting a single Revision is allowed even when it is
+the only released one — the flash then warns how many recorded Downloads referenced it.
+**Download rows are never deleted.**
+
+**Preview Images.** `syncImages` takes an ordered `vault_file_ids[]`, validated to exist in `vault_files`
+and to have an `image/*` mime, and replaces the `flowchart_script_images` rows with a fresh `sort_order`.
+The first image is the cover. The picker is the global Vault picker
+(`useVaultPicker` -> `Components/Vault/VaultPicker.tsx`); ordering is drag-and-drop with `@dnd-kit`.
+AI Models have no Preview Images.
+
+### Inertia pages and shared components
+
+- `resources/js/Pages/Marketplace/Scripts/{Index,Create,Edit,Show}.tsx`
+- `resources/js/Pages/Marketplace/AiModels/{Index,Create,Edit,Show}.tsx`
+- `resources/js/Components/Marketplace/` — `RevisionsTable.tsx`, `RevisionUploadDialog.tsx`
+  (react-dropzone plus change note, showing the allowed extension and the size cap),
+  `RevisionStatusBadge.tsx`, `DownloadsTable.tsx`, `PreviewImagesManager.tsx`, `CatalogueFilters.tsx`
+  (Machine Model options sorted and labelled by Machine Brand, plus Customer), `format.ts`.
+
+Both Show pages use tabs: **Revisions**, **Downloads** (latest 50 `web` rows), **Details**, and — Scripts
+only — **Preview Images**. The indexes list name, Machine Model, Customer, latest released Revision,
+Revision count, total Downloads and updated-at, and reuse the shared `DataTable` with client-side paging,
+so the controllers return full ordered collections. The latest released Revision number is computed from
+an eager-loaded, column-limited `revisions` relation (then dropped from the payload) rather than a query
+per row.
+
+The sidebar gains **FlowChart Scripts** (`scripts.view`) and **AI Models** (`ai_models.view`).
+
+`ActivityLogger::log` records create / update / delete / restore / upload / release / deprecate /
+hard_delete.
+
 ## Tests
 
 `tests/Feature/Marketplace/`:
@@ -234,12 +362,22 @@ backend access.
   user belonging to another Customer 404s.
 - `CustomerUserWebLoginTest` — the web login refuses a Customer User and a customer-role-only user,
   while a Team Member and an ordinary user still log in.
+- `RevisionServiceTest` — `Storage::fake('marketplace')`; numbering increments per revisable and is
+  independent between two Scripts and between a Script and an AI Model; wrong extension, double
+  extension, bad magic bytes and oversize are refused; the SHA-256 matches the bytes; every lifecycle
+  transition allowed and refused; `ClamAvScanner` mocked to assert it is called only when
+  `vault.clamav_enabled` is set and that a hit refuses the upload.
+- `FlowchartScriptControllerTest`, `AiModelControllerTest` — 403 without each permission, CRUD, unique
+  name per Machine Model, soft delete / restore / force delete (files removed), upload, release,
+  deprecate, download (records a `web` Download and returns `X-Checksum-SHA256`), cross-entry Revision
+  404, hard delete keeping Download rows.
+- `FlowchartScriptImagesTest` — sync order, reorder, clear, non-image and unknown Vault file refused,
+  403 without `scripts.edit`.
 
 Factories exist for all nine models.
 
 ## Remaining phases
 
-3. Catalogue admin — Scripts + AI Models CRUD, `RevisionService`, upload/release/deprecate, gallery, hard delete.
 4. RPA-TOOL API — `routes/api.php` under `/api/v1`, Sanctum login, AI Box auto-register/block, read + download endpoints.
 5. AI Boxes & Downloads admin — box management, download log, counts, installed-revision view.
 6. CMS strip (deferred) — possibly remove pages/banners/menus/llms/AI hub.

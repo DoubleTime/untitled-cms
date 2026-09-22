@@ -319,3 +319,35 @@ with a string `tokenable_id` (ULIDs) and `'user' => User::class` in the enforced
 Web login is now closed to them: `LoginRequest::isRpaToolOnly()` drives a rejection in both
 `LoginRequest::authenticate()` and `SocialAuthController::callback()`. Details in
 [modules/marketplace](modules/marketplace.md); see also [permissions](modules/permissions.md).
+
+## [2026-09-22] update | Marketplace Phase 3: Catalogue admin, Revisions and Downloads
+
+Shipped the Phase 3 catalogue admin from `docs/marketplace-plan.md`. Added
+`App\Services\Marketplace\{RevisionService,DownloadService}`,
+`App\Exceptions\Marketplace\InvalidRevisionTransition`,
+`Marketplace\{FlowchartScript,AiModel}Controller`, `FlowchartScriptPolicy`, `AiModelPolicy`
+(registered in `AppServiceProvider`), six form requests, and the `admin.marketplace.scripts.*` /
+`admin.marketplace.ai-models.*` routes, with `throttle:30,1` on the Revision upload routes.
+
+`RevisionService` validates extension (keyed by `getMorphClass()`), double extension, size cap and
+magic bytes (`PK\x03\x04` / `\x89HDF\r\n\x1a\n`), optionally scans with ClamAV, numbers
+`max + 1` per revisable inside a transaction with a single retry, and stores on the private
+`marketplace` disk at `{alias}/{id}/{number}.{ext}` with the SHA-256 recorded. The lifecycle is one
+way: `draft -> released -> deprecated`, `InvalidRevisionTransition` otherwise.
+
+The clamd implementation was extracted from `App\Vault\Pipes\SandboxedScan` into
+`App\Services\ClamAvScanner` so the Vault pipeline and the Marketplace share one copy; the pipe now
+injects it and keeps its old behaviour, and the Vault tests still pass unchanged — see
+[modules/vault](modules/vault.md).
+
+Front end: `Pages/Marketplace/{Scripts,AiModels}/{Index,Create,Edit,Show}.tsx` plus shared
+`Components/Marketplace/{RevisionsTable,RevisionUploadDialog,RevisionStatusBadge,DownloadsTable,PreviewImagesManager,CatalogueFilters}`.
+Preview Images reuse the global Vault picker with `@dnd-kit` ordering (first image is the cover).
+Sidebar entries gated on `scripts.view` / `ai_models.view`; new types in `resources/js/types/index.d.ts`.
+
+`bootstrap/app.php` now turns `PostTooLargeException` into a flash `error` — the app cap is enforced by
+`StoreRevisionRequest`, but `upload_max_filesize` and `post_max_size` must still be raised on the VPS.
+
+Tests: `RevisionServiceTest`, `FlowchartScriptControllerTest`, `AiModelControllerTest`,
+`FlowchartScriptImagesTest` (61 new cases). Full suite 251/251, 614 assertions.
+Details in [modules/marketplace](modules/marketplace.md) and [modules/services](modules/services.md).

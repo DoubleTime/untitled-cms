@@ -2,7 +2,7 @@
 
 > Media manager: upload pipeline, configuration, and storage.
 
-Last updated: 2026-09-13
+Last updated: 2026-09-22
 
 ## Overview
 
@@ -24,6 +24,27 @@ the upload fails with an appropriate error.
 | 6 | `StoreMetadata` | Persists file record to MongoDB `vault_files` collection |
 
 *Note: `SandboxedScan` connects to a clamd daemon via TCP. By default, it fails open, but can be configured to fail closed using the `CLAMAV_FAIL_CLOSED` setting, blocking uploads when the scanner is offline.*
+
+### The scanner itself lives outside the pipe
+
+As of the Marketplace Phase 3 work the clamd conversation is **not** in the pipe. It was extracted to
+`App\Services\ClamAvScanner`, so the Vault pipeline and `App\Services\Marketplace\RevisionService`
+share one implementation — Revision files bypass the Vault entirely (see
+[marketplace](marketplace.md) and `docs/adr/0003`) but must still be scanned the same way.
+
+```php
+ClamAvScanner::scan(string $filePath): ?string   // threat name, or null when clean
+```
+
+`scan()` owns the INSTREAM protocol, the timeout handling (a timed-out read is an error, never
+"clean") **and** the fail-open / fail-closed decision: a daemon failure is logged and swallowed unless
+`vault.clamav_fail_closed` is set, in which case it raises a `ValidationException` on the `file` key —
+exactly the behaviour the pipe had before. `SandboxedScan` now only decides what to do with a hit: it
+flags the payload `infected` and records the reason, leaving the upload to continue and be quarantined.
+`RevisionService` instead refuses the upload outright.
+
+Behaviour, config keys (`CLAMAV_ENABLED`, `CLAMAV_HOST`, `CLAMAV_PORT`, `CLAMAV_TIMEOUT`,
+`CLAMAV_FAIL_CLOSED`) and the existing Vault tests are unchanged by the extraction.
 
 ## Configuration (`config/vault.php`)
 

@@ -48,6 +48,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     ...(permissions.includes('customers.view')
       ? [{ title: "Customers", url: route('admin.marketplace.customers.index') }]
       : []),
+    ...(permissions.includes('scripts.view')
+      ? [{ title: "FlowChart Scripts", url: route('admin.marketplace.scripts.index') }]
+      : []),
+    ...(permissions.includes('ai_models.view')
+      ? [{ title: "AI Models", url: route('admin.marketplace.ai-models.index') }]
+      : []),
     ...(permissions.includes('machines.view')
       ? [
           { title: "Machine Brands", url: route('admin.marketplace.machine-brands.index') },
