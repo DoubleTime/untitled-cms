@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * A trained inference model published on its own, independent of any FlowChart Script.
+ * A trained inference model published on its own, independent of any Script.
  *
  * Not to be confused with App\Models\AiHub, which configures the CMS's own AI providers.
  */

@@ -3,13 +3,13 @@
 namespace Tests\Feature\Marketplace;
 
 use App\Models\AiModel;
-use App\Models\FlowchartScript;
 use App\Models\Revision;
+use App\Models\Script;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Revisions are polymorphic so AI Models and FlowChart Scripts share one
+ * Revisions are polymorphic so AI Models and Scripts share one
  * implementation. Only released Revisions are offered to RPA-TOOL by default.
  */
 class RevisionModelTest extends TestCase
@@ -34,7 +34,7 @@ class RevisionModelTest extends TestCase
 
     public function test_latest_released_revision_is_null_when_nothing_is_released(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
 
         Revision::factory()->for($script, 'revisable')->create(['number' => 1]);
         Revision::factory()->for($script, 'revisable')->deprecated()->create(['number' => 2]);
@@ -44,7 +44,7 @@ class RevisionModelTest extends TestCase
 
     public function test_revisions_are_ordered_by_number_descending(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
 
         Revision::factory()->for($script, 'revisable')->create(['number' => 1]);
         Revision::factory()->for($script, 'revisable')->create(['number' => 3]);
@@ -56,7 +56,7 @@ class RevisionModelTest extends TestCase
     public function test_revisable_resolves_for_both_entry_types(): void
     {
         $model = AiModel::factory()->create();
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
 
         $modelRevision = Revision::factory()->for($model, 'revisable')->create(['number' => 1]);
         $scriptRevision = Revision::factory()->for($script, 'revisable')->create(['number' => 1]);
@@ -64,7 +64,7 @@ class RevisionModelTest extends TestCase
         $this->assertInstanceOf(AiModel::class, $modelRevision->fresh()->revisable);
         $this->assertSame($model->id, $modelRevision->fresh()->revisable->id);
 
-        $this->assertInstanceOf(FlowchartScript::class, $scriptRevision->fresh()->revisable);
+        $this->assertInstanceOf(Script::class, $scriptRevision->fresh()->revisable);
         $this->assertSame($script->id, $scriptRevision->fresh()->revisable->id);
 
         // Each entry sees only its own revisions.

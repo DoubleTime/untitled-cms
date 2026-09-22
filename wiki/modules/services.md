@@ -60,7 +60,7 @@ and returns the threat name or null. It owns the fail-open / fail-closed decisio
 See [modules/vault](vault.md).
 
 ### Marketplace\RevisionService
-Uploads and lifecycle for Revisions of a FlowChart Script or an AI Model. Validates the extension
+Uploads and lifecycle for Revisions of a Script or an AI Model. Validates the extension
 (from `config/marketplace.php`, keyed by morph alias), refuses double extensions, enforces the size cap,
 verifies magic bytes (zip / HDF5), optionally scans with `ClamAvScanner`, numbers the Revision
 `max + 1` per revisable inside a transaction, stores it on the private `marketplace` disk and records the

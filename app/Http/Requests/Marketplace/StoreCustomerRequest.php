@@ -4,6 +4,7 @@ namespace App\Http\Requests\Marketplace;
 
 use App\Models\Customer;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreCustomerRequest extends FormRequest
 {
@@ -13,12 +14,23 @@ class StoreCustomerRequest extends FormRequest
     }
 
     /**
+     * The Customer code is the short unique key (e.g. INARI-123); it is always stored
+     * uppercase so the uniqueness check and every lookup agree on one spelling.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('code')) {
+            $this->merge(['code' => strtoupper(trim((string) $this->input('code')))]);
+        }
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255',
+            'code' => ['required', 'string', 'alpha_dash', 'max:32', Rule::unique('customers', 'code')],
             'company' => 'required|string|max:255',
             'contact_name' => 'nullable|string|max:255',
             'contact_email' => 'nullable|email|max:255',

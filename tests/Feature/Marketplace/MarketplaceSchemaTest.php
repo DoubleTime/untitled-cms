@@ -2,13 +2,13 @@
 
 namespace Tests\Feature\Marketplace;
 
-use App\Models\AiBox;
 use App\Models\AiModel;
 use App\Models\Customer;
-use App\Models\FlowchartScript;
 use App\Models\MachineBrand;
 use App\Models\MachineModel;
 use App\Models\Revision;
+use App\Models\Script;
+use App\Models\UnysisBox;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
@@ -29,18 +29,18 @@ class MarketplaceSchemaTest extends TestCase
             'customers',
             'machine_brands',
             'machine_models',
-            'flowchart_scripts',
-            'flowchart_script_images',
+            'scripts',
+            'script_images',
             'ai_models',
             'revisions',
-            'ai_boxes',
+            'unysis_boxes',
             'downloads',
         ] as $table) {
             $this->assertTrue(Schema::hasTable($table), "Missing table: {$table}");
         }
 
         $this->assertTrue(Schema::hasColumn('users', 'customer_id'));
-        $this->assertTrue(Schema::hasColumn('flowchart_scripts', 'deleted_at'));
+        $this->assertTrue(Schema::hasColumn('scripts', 'deleted_at'));
         $this->assertTrue(Schema::hasColumn('ai_models', 'deleted_at'));
     }
 
@@ -66,19 +66,19 @@ class MarketplaceSchemaTest extends TestCase
         MachineModel::factory()->create(['machine_brand_id' => $brand->id, 'name' => 'R-2000']);
     }
 
-    public function test_ai_box_motherboard_uuid_is_unique(): void
+    public function test_unysis_box_motherboard_uuid_is_unique(): void
     {
         $uuid = '0f9c1d8e-3a55-4b21-9a0f-1c2d3e4f5a6b';
-        AiBox::factory()->create(['motherboard_uuid' => $uuid]);
+        UnysisBox::factory()->create(['motherboard_uuid' => $uuid]);
 
         $this->expectException(QueryException::class);
-        AiBox::factory()->create(['motherboard_uuid' => $uuid]);
+        UnysisBox::factory()->create(['motherboard_uuid' => $uuid]);
     }
 
     public function test_revision_number_is_unique_per_revisable(): void
     {
         $model = AiModel::factory()->create();
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
 
         Revision::factory()->for($model, 'revisable')->create(['number' => 1]);
 
@@ -93,13 +93,13 @@ class MarketplaceSchemaTest extends TestCase
     {
         $customer = Customer::factory()->create();
 
-        $script = FlowchartScript::factory()->create(['customer_id' => $customer->id]);
+        $script = Script::factory()->create(['customer_id' => $customer->id]);
         $model = AiModel::factory()->create(['customer_id' => $customer->id]);
 
         $this->assertTrue($customer->is($script->customer));
         $this->assertTrue($customer->is($model->customer));
 
         // The label is optional — an unlabelled entry is the normal case.
-        $this->assertNull(FlowchartScript::factory()->create()->customer_id);
+        $this->assertNull(Script::factory()->create()->customer_id);
     }
 }

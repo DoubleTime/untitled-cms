@@ -40,8 +40,8 @@ export default function Index({ customers }: CustomersIndexProps) {
                 ),
             },
             {
-                accessorKey: 'name',
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
+                accessorKey: 'code',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Code" />,
             },
             {
                 accessorKey: 'contact_email',
@@ -67,10 +67,10 @@ export default function Index({ customers }: CustomersIndexProps) {
             },
             {
                 id: 'counts',
-                header: 'Users / AI Boxes',
+                header: 'Users / UNYSIS Boxes',
                 cell: ({ row }) => (
                     <span className="text-sm text-muted-foreground">
-                        {row.original.users_count ?? 0} / {row.original.ai_boxes_count ?? 0}
+                        {row.original.users_count ?? 0} / {row.original.unysis_boxes_count ?? 0}
                     </span>
                 ),
             },
@@ -135,7 +135,7 @@ export default function Index({ customers }: CustomersIndexProps) {
             <div className="flex justify-between items-start">
                 <div>
                     <h3 className="font-semibold text-lg">{row.company}</h3>
-                    <p className="text-sm text-muted-foreground">{row.name}</p>
+                    <p className="text-sm text-muted-foreground">{row.code}</p>
                 </div>
                 <Link href={route('admin.marketplace.customers.show', row.id)}>
                     <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -144,7 +144,7 @@ export default function Index({ customers }: CustomersIndexProps) {
                 </Link>
             </div>
             <div className="text-sm text-muted-foreground">
-                {row.users_count ?? 0} Customer Users · {row.ai_boxes_count ?? 0} AI Boxes
+                {row.users_count ?? 0} Customer Users · {row.unysis_boxes_count ?? 0} UNYSIS Boxes
             </div>
         </div>
     );
@@ -158,7 +158,7 @@ export default function Index({ customers }: CustomersIndexProps) {
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
                         <p className="text-muted-foreground">
-                            Companies that own UNYSIS AI Boxes and have their own Customer Users.
+                            Companies that own UNYSIS Boxes and have their own Customer Users.
                         </p>
                     </div>
                     {canCreate && (

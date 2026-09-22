@@ -33,15 +33,15 @@ export default function Create({ machineModels, customers }: ScriptCreateProps) 
     const submit = () => post(route('admin.marketplace.scripts.store'));
 
     return (
-        <AuthenticatedLayout header="Create FlowChart Script">
-            <Head title="Create FlowChart Script" />
+        <AuthenticatedLayout header="Create Script">
+            <Head title="Create Script" />
 
             <div className="flex flex-col gap-4 pb-20">
-                <h1 className="text-2xl font-bold">Create FlowChart Script</h1>
+                <h1 className="text-2xl font-bold">Create Script</h1>
 
                 <Card className="max-w-2xl">
                     <CardHeader>
-                        <CardTitle>FlowChart Script</CardTitle>
+                        <CardTitle>Script</CardTitle>
                         <CardDescription>
                             A packaged automation sequence for one Machine Model. The name must be unique within
                             that Machine Model; the slug is generated from it. Upload the first Revision from the

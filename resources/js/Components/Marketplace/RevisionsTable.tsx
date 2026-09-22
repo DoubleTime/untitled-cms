@@ -44,7 +44,7 @@ interface RevisionsTableProps {
 }
 
 /**
- * Revision history for one catalogue entry. Shared by FlowChart Scripts and
+ * Revision history for one catalogue entry. Shared by Scripts and
  * AI Models — they use the same Revision implementation.
  */
 export default function RevisionsTable({
@@ -86,7 +86,7 @@ export default function RevisionsTable({
                             <TableHead>Uploaded by</TableHead>
                             <TableHead>Released</TableHead>
                             <TableHead>Downloads</TableHead>
-                            <TableHead>AI Boxes</TableHead>
+                            <TableHead>UNYSIS Boxes</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -131,7 +131,7 @@ export default function RevisionsTable({
                                     <Badge variant="outline">{revision.downloads_count ?? 0}</Badge>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge variant="outline" title="Distinct AI Boxes that pulled this Revision">
+                                    <Badge variant="outline" title="Distinct UNYSIS Boxes that pulled this Revision">
                                         {revision.unique_boxes_count ?? 0}
                                     </Badge>
                                 </TableCell>

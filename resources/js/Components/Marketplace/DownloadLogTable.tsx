@@ -16,17 +16,17 @@ import { formatDateTime } from './format';
  *
  * The narrower `DownloadsTable` on the catalogue Show pages lists only that
  * entry's own web fetches; this one is the full log, so it carries the entry, the
- * source and the AI Box as well. Rows are never deleted, so an entry that has
+ * source and the UNYSIS Box as well. Rows are never deleted, so an entry that has
  * since been hard deleted still appears, without a link.
  */
 export function entryRoute(row: Pick<DownloadLogRow, 'entry_type' | 'entry_id'>): string {
-    return row.entry_type === 'flowchart_script'
+    return row.entry_type === 'script'
         ? route('admin.marketplace.scripts.show', row.entry_id)
         : route('admin.marketplace.ai-models.show', row.entry_id);
 }
 
 export function entryTypeLabel(type: DownloadLogRow['entry_type']): string {
-    return type === 'flowchart_script' ? 'FlowChart Script' : 'AI Model';
+    return type === 'script' ? 'Script' : 'AI Model';
 }
 
 export default function DownloadLogTable({
@@ -54,7 +54,7 @@ export default function DownloadLogTable({
                         {showEntry && <TableHead>Entry</TableHead>}
                         <TableHead>Revision</TableHead>
                         <TableHead>Who</TableHead>
-                        {showBox && <TableHead>AI Box</TableHead>}
+                        {showBox && <TableHead>UNYSIS Box</TableHead>}
                         <TableHead>IP</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -93,12 +93,12 @@ export default function DownloadLogTable({
                             <TableCell className="text-sm">{row.user?.name ?? '—'}</TableCell>
                             {showBox && (
                                 <TableCell className="text-sm">
-                                    {row.ai_box ? (
+                                    {row.unysis_box ? (
                                         <Link
-                                            href={route('admin.marketplace.ai-boxes.show', row.ai_box.id)}
+                                            href={route('admin.marketplace.unysis-boxes.show', row.unysis_box.id)}
                                             className="hover:underline"
                                         >
-                                            {row.ai_box.name || row.ai_box.motherboard_uuid}
+                                            {row.unysis_box.name || row.unysis_box.motherboard_uuid}
                                         </Link>
                                     ) : (
                                         '—'

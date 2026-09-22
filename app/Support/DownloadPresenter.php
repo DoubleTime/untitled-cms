@@ -4,7 +4,7 @@ namespace App\Support;
 
 use App\Models\AiModel;
 use App\Models\Download;
-use App\Models\FlowchartScript;
+use App\Models\Script;
 use Illuminate\Support\Collection;
 
 /**
@@ -34,7 +34,7 @@ class DownloadPresenter
 
         foreach ($byType as $type => $ids) {
             $model = match ($type) {
-                'flowchart_script', FlowchartScript::class => FlowchartScript::class,
+                'script', Script::class => Script::class,
                 'ai_model', AiModel::class => AiModel::class,
                 default => null,
             };
@@ -75,11 +75,11 @@ class DownloadPresenter
             'user' => $download->user
                 ? ['id' => $download->user->getKey(), 'name' => $download->user->name]
                 : null,
-            'ai_box' => $download->relationLoaded('aiBox') && $download->aiBox
+            'unysis_box' => $download->relationLoaded('unysisBox') && $download->unysisBox
                 ? [
-                    'id' => $download->aiBox->getKey(),
-                    'name' => $download->aiBox->name,
-                    'motherboard_uuid' => $download->aiBox->motherboard_uuid,
+                    'id' => $download->unysisBox->getKey(),
+                    'name' => $download->unysisBox->name,
+                    'motherboard_uuid' => $download->unysisBox->motherboard_uuid,
                 ]
                 : null,
             'revision' => $download->revision

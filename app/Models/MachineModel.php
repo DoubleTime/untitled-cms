@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * A specific make of equipment that FlowChart Scripts and AI Models target;
+ * A specific make of equipment that Scripts and AI Models target;
  * the primary way the catalogue is organised.
  */
 class MachineModel extends Model
@@ -34,9 +34,9 @@ class MachineModel extends Model
         return $this->belongsTo(MachineBrand::class);
     }
 
-    public function flowchartScripts(): HasMany
+    public function scripts(): HasMany
     {
-        return $this->hasMany(FlowchartScript::class);
+        return $this->hasMany(Script::class);
     }
 
     public function aiModels(): HasMany
@@ -44,9 +44,9 @@ class MachineModel extends Model
         return $this->hasMany(AiModel::class);
     }
 
-    public function aiBoxes(): HasMany
+    public function unysisBoxes(): HasMany
     {
-        return $this->hasMany(AiBox::class);
+        return $this->hasMany(UnysisBox::class);
     }
 
     public function scopeActive(Builder $query): Builder

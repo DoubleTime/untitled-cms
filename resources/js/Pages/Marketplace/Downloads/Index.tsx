@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import type { AiBox, Customer, DownloadLogRow, Paginated, PageProps, User } from '@/types';
+import type { UnysisBox, Customer, DownloadLogRow, Paginated, PageProps, User } from '@/types';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
@@ -24,7 +24,7 @@ interface DownloadFilters {
     source: string | null;
     entry_type: string | null;
     customer_id: string | null;
-    ai_box_id: string | null;
+    unysis_box_id: string | null;
     user_id: string | null;
     q: string | null;
     from: string | null;
@@ -48,7 +48,7 @@ interface DownloadsIndexProps extends PageProps {
         top_entries: TopEntry[];
     };
     customers: Pick<Customer, 'id' | 'company'>[];
-    aiBoxes: (Pick<AiBox, 'id' | 'name' | 'motherboard_uuid' | 'customer_id'> & {
+    unysisBoxes: (Pick<UnysisBox, 'id' | 'name' | 'motherboard_uuid' | 'customer_id'> & {
         customer?: Pick<Customer, 'id' | 'company'> | null;
     })[];
     users: (Pick<User, 'id' | 'name' | 'email'> & { customer_id?: string | null })[];
@@ -59,7 +59,7 @@ export default function Index({
     filters,
     summary,
     customers,
-    aiBoxes,
+    unysisBoxes,
     users,
 }: DownloadsIndexProps) {
     useFlashToast();
@@ -91,8 +91,8 @@ export default function Index({
     const isFiltered = Object.values(filters).some((value) => !!value);
 
     const visibleBoxes = filters.customer_id
-        ? aiBoxes.filter((box) => box.customer_id === filters.customer_id)
-        : aiBoxes;
+        ? unysisBoxes.filter((box) => box.customer_id === filters.customer_id)
+        : unysisBoxes;
 
     return (
         <AuthenticatedLayout header="Downloads">
@@ -102,7 +102,7 @@ export default function Index({
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Downloads</h1>
                     <p className="text-muted-foreground">
-                        Every recorded fetch of a Revision file — from RPA-TOOL on an AI Box, and from Team
+                        Every recorded fetch of a Revision file — from RPA-TOOL on an UNYSIS Box, and from Team
                         Members in the admin. Download rows are never deleted.
                     </p>
                 </div>
@@ -131,7 +131,7 @@ export default function Index({
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Unique AI Boxes
+                                Unique UNYSIS Boxes
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -221,7 +221,7 @@ export default function Index({
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value={ANY}>Any type</SelectItem>
-                                <SelectItem value="flowchart_script">FlowChart Script</SelectItem>
+                                <SelectItem value="script">Script</SelectItem>
                                 <SelectItem value="ai_model">AI Model</SelectItem>
                             </SelectContent>
                         </Select>
@@ -232,7 +232,7 @@ export default function Index({
                         <Select
                             value={filters.customer_id ?? ANY}
                             onValueChange={(value) =>
-                                apply({ customer_id: value === ANY ? null : value, ai_box_id: null })
+                                apply({ customer_id: value === ANY ? null : value, unysis_box_id: null })
                             }
                         >
                             <SelectTrigger className="mt-1 h-8 w-[180px]">
@@ -250,16 +250,16 @@ export default function Index({
                     </div>
 
                     <div>
-                        <Label className="text-xs">AI Box</Label>
+                        <Label className="text-xs">UNYSIS Box</Label>
                         <Select
-                            value={filters.ai_box_id ?? ANY}
-                            onValueChange={(value) => apply({ ai_box_id: value === ANY ? null : value })}
+                            value={filters.unysis_box_id ?? ANY}
+                            onValueChange={(value) => apply({ unysis_box_id: value === ANY ? null : value })}
                         >
                             <SelectTrigger className="mt-1 h-8 w-[200px]">
-                                <SelectValue placeholder="Any AI Box" />
+                                <SelectValue placeholder="Any UNYSIS Box" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value={ANY}>Any AI Box</SelectItem>
+                                <SelectItem value={ANY}>Any UNYSIS Box</SelectItem>
                                 {visibleBoxes.map((box) => (
                                     <SelectItem key={box.id} value={box.id}>
                                         {box.name || box.motherboard_uuid}

@@ -58,7 +58,7 @@ export default function Show({
                             )}
                             <Badge variant="outline">{revisions.length} Revisions</Badge>
                             <Badge variant="outline">{downloadStats.total} Downloads</Badge>
-                            <Badge variant="outline">{downloadStats.unique_boxes} AI Boxes</Badge>
+                            <Badge variant="outline">{downloadStats.unique_boxes} UNYSIS Boxes</Badge>
                             {aiModel.framework && <Badge variant="outline">{aiModel.framework}</Badge>}
                             {aiModel.input_size && <Badge variant="outline">{aiModel.input_size}</Badge>}
                         </div>

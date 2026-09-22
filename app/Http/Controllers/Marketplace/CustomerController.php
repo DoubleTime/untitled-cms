@@ -17,7 +17,7 @@ class CustomerController extends Controller
     {
         Gate::authorize('viewAny', Customer::class);
 
-        $customers = Customer::withCount(['users', 'aiBoxes'])
+        $customers = Customer::withCount(['users', 'unysisBoxes'])
             ->orderBy('company')
             ->get();
 
@@ -56,7 +56,7 @@ class CustomerController extends Controller
     {
         Gate::authorize('view', $customer);
 
-        $customer->loadCount('aiBoxes');
+        $customer->loadCount('unysisBoxes');
 
         return Inertia::render('Marketplace/Customers/Show', [
             'customer' => $customer,
@@ -64,11 +64,11 @@ class CustomerController extends Controller
                 ->withCount('tokens')
                 ->orderBy('name')
                 ->get(['id', 'name', 'email', 'is_active', 'created_at', 'customer_id']),
-            // The Customer's AI Boxes, for the AI Boxes tab (Phase 5).
-            'aiBoxes' => $customer->aiBoxes()
+            // The Customer's UNYSIS Boxes, for the UNYSIS Boxes tab (Phase 5).
+            'unysisBoxes' => $customer->unysisBoxes()
                 ->orderByDesc('last_seen_at')
                 ->get(['id', 'motherboard_uuid', 'name', 'location', 'status', 'last_seen_at', 'customer_id']),
-            'canViewAiBoxes' => $request->user()->hasPermission('ai_boxes.view'),
+            'canViewUnysisBoxes' => $request->user()->hasPermission('unysis_boxes.view'),
             'canEdit' => $request->user()->can('update', $customer),
             'canDelete' => $request->user()->can('delete', $customer),
         ]);
@@ -100,10 +100,10 @@ class CustomerController extends Controller
     {
         Gate::authorize('delete', $customer);
 
-        // No cascade: a Customer that still owns Customer Users or AI Boxes is kept.
-        if ($customer->users()->exists() || $customer->aiBoxes()->exists()) {
+        // No cascade: a Customer that still owns Customer Users or UNYSIS Boxes is kept.
+        if ($customer->users()->exists() || $customer->unysisBoxes()->exists()) {
             return redirect()->route('admin.marketplace.customers.index')
-                ->with('error', 'This Customer still has Customer Users or AI Boxes. Remove them first.');
+                ->with('error', 'This Customer still has Customer Users or UNYSIS Boxes. Remove them first.');
         }
 
         $company = $customer->company;

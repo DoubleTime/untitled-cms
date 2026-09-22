@@ -129,11 +129,11 @@ Inertia form pattern: use `useForm()` from `@inertiajs/react` — handles loadin
 
 ### RPA-TOOL API (`routes/api.php`, prefix `/api/v1`, names `api.v1.*`)
 
-Registered via `withRouting(api: ..., apiPrefix: 'api')`. Consumed by RPA-TOOL on UNYSIS AI Boxes;
+Registered via `withRouting(api: ..., apiPrefix: 'api')`. Consumed by RPA-TOOL on UNYSIS Boxes;
 full reference in `docs/api/rpa-tool-v1.md`.
 
 - **Public:** `POST /api/v1/login` — `throttle:rpa-login` (5/min per IP)
-- **Token-authenticated** (`auth:sanctum` + `ai-box`):
+- **Token-authenticated** (`auth:sanctum` + `unysis-box`):
   - `POST /logout`, `GET /me`
   - `GET /machine-brands`, `/machine-models`, `/customers`
   - `GET /scripts`, `/scripts/{entry}`, `/scripts/{entry}/revisions`, `/scripts/{entry}/check-update`
@@ -141,7 +141,7 @@ full reference in `docs/api/rpa-tool-v1.md`.
   - all of the above `throttle:rpa` (60/min per token)
   - `GET /scripts/{entry}/download`, `GET /ai-models/{entry}/download` — `throttle:rpa-download` (20/min per token)
 
-`ai-box` is `App\Http\Middleware\ResolveAiBox`: it resolves the AI Box from the Sanctum token's
+`unysis-box` is `App\Http\Middleware\ResolveUnysisBox`: it resolves the UNYSIS Box from the Sanctum token's
 name (the motherboard UUID) and re-checks box, Customer User and Customer on every request.
 
 ## Database
@@ -165,12 +165,12 @@ Key tables: `users`, `roles`, `role_user`, `pages`, `banners`, `vault_files`, `v
 
 Catalogue schema added by `2026_09_22_000001_create_marketplace_tables.php`. Vocabulary is fixed in `CONTEXT.md`; details in [modules/marketplace](wiki/modules/marketplace.md).
 
-- `customers` — a company owning AI Boxes; `users.customer_id` (nullable) marks a Customer User
+- `customers` — a company owning UNYSIS Boxes, keyed by a unique `code`; `users.customer_id` (nullable) marks a Customer User
 - `machine_brands`, `machine_models` — how the catalogue is organised; unique name per brand
-- `flowchart_scripts`, `flowchart_script_images` — packaged automation sequences and their Vault-backed Preview Images
+- `scripts`, `script_images` — packaged automation sequences and their Vault-backed Preview Images
 - `ai_models` — standalone trained inference models (unrelated to `ai_hubs`)
 - `revisions` — polymorphic (`revisable`) numbered uploads shared by both entry types; unique number per revisable
-- `ai_boxes` — edge devices keyed by a unique `motherboard_uuid`
+- `unysis_boxes` — edge devices keyed by a unique `motherboard_uuid`
 - `downloads` — one logged fetch of a Revision file
 
 Revision files live on the private `marketplace` disk (`config/marketplace.php`), not in the Vault.

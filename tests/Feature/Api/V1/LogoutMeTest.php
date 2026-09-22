@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Api\V1;
 
-use App\Models\AiBox;
 use App\Models\Customer;
+use App\Models\UnysisBox;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class LogoutMeTest extends ApiTestCase
@@ -35,10 +35,10 @@ class LogoutMeTest extends ApiTestCase
             ->assertOk()
             ->assertJsonPath('user.id', $user->id)
             ->assertJsonPath('customer.company', 'Plexus')
-            ->assertJsonPath('ai_box.motherboard_uuid', self::UUID)
-            ->assertJsonPath('ai_box.name', 'Cell B')
-            ->assertJsonPath('ai_box.status', AiBox::STATUS_PENDING)
-            ->assertJsonStructure(['user', 'customer', 'ai_box', 'token_expires_at']);
+            ->assertJsonPath('unysis_box.motherboard_uuid', self::UUID)
+            ->assertJsonPath('unysis_box.name', 'Cell B')
+            ->assertJsonPath('unysis_box.status', UnysisBox::STATUS_PENDING)
+            ->assertJsonStructure(['user', 'customer', 'unysis_box', 'token_expires_at']);
     }
 
     public function test_logout_deletes_only_the_current_token(): void

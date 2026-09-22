@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Marketplace;
 
 use App\Http\Controllers\Controller;
-use App\Models\AiBox;
 use App\Models\AiModel;
 use App\Models\Customer;
 use App\Models\Download;
-use App\Models\FlowchartScript;
+use App\Models\Script;
+use App\Models\UnysisBox;
 use App\Models\User;
 use App\Support\DownloadPresenter;
 use Illuminate\Database\Eloquent\Builder;
@@ -33,7 +33,7 @@ class DownloadController extends Controller
         $filters = $this->filters($request);
 
         $downloads = $this->query($filters)
-            ->with(['user:id,name', 'revision:id,number', 'aiBox:id,name,motherboard_uuid'])
+            ->with(['user:id,name', 'revision:id,number', 'unysisBox:id,name,motherboard_uuid'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate(self::PER_PAGE)
@@ -48,7 +48,7 @@ class DownloadController extends Controller
             'filters' => $filters,
             'summary' => $this->summary($filters),
             'customers' => Customer::orderBy('company')->get(['id', 'company']),
-            'aiBoxes' => AiBox::query()
+            'unysisBoxes' => UnysisBox::query()
                 ->with('customer:id,company')
                 ->orderBy('motherboard_uuid')
                 ->get(['id', 'name', 'motherboard_uuid', 'customer_id']),
@@ -74,9 +74,9 @@ class DownloadController extends Controller
 
         return [
             'source' => in_array($source, [Download::SOURCE_API, Download::SOURCE_WEB], true) ? $source : null,
-            'entry_type' => in_array($entryType, ['flowchart_script', 'ai_model'], true) ? $entryType : null,
+            'entry_type' => in_array($entryType, ['script', 'ai_model'], true) ? $entryType : null,
             'customer_id' => $request->string('customer_id')->toString() ?: null,
-            'ai_box_id' => $request->string('ai_box_id')->toString() ?: null,
+            'unysis_box_id' => $request->string('unysis_box_id')->toString() ?: null,
             'user_id' => $request->string('user_id')->toString() ?: null,
             'q' => trim($request->string('q')->toString()) ?: null,
             'from' => $request->string('from')->toString() ?: null,
@@ -92,14 +92,14 @@ class DownloadController extends Controller
         return Download::query()
             ->when($filters['source'], fn (Builder $q, $source) => $q->where('source', $source))
             ->when($filters['entry_type'], fn (Builder $q, $type) => $q->where('revisable_type', $type))
-            ->when($filters['ai_box_id'], fn (Builder $q, $id) => $q->where('ai_box_id', $id))
+            ->when($filters['unysis_box_id'], fn (Builder $q, $id) => $q->where('unysis_box_id', $id))
             ->when($filters['user_id'], fn (Builder $q, $id) => $q->where('user_id', $id))
             // A Download carries no customer_id: it belongs to a Customer through
-            // the AI Box it came from, or — for a web fetch with no box — through
+            // the UNYSIS Box it came from, or — for a web fetch with no box — through
             // the Customer User who made it.
             ->when($filters['customer_id'], fn (Builder $q, $id) => $q->where(
                 fn (Builder $inner) => $inner
-                    ->whereIn('ai_box_id', AiBox::query()->where('customer_id', $id)->select('id'))
+                    ->whereIn('unysis_box_id', UnysisBox::query()->where('customer_id', $id)->select('id'))
                     ->orWhereIn('user_id', User::query()->where('customer_id', $id)->select('id'))
             ))
             ->when($filters['q'], fn (Builder $q, $term) => $this->applyEntrySearch($q, $term))
@@ -116,7 +116,7 @@ class DownloadController extends Controller
     {
         $like = '%'.str_replace(['%', '_'], ['\%', '\_'], $term).'%';
 
-        $scriptIds = FlowchartScript::withTrashed()->where('name', 'like', $like)->pluck('id')->all();
+        $scriptIds = Script::withTrashed()->where('name', 'like', $like)->pluck('id')->all();
         $aiModelIds = AiModel::withTrashed()->where('name', 'like', $like)->pluck('id')->all();
 
         return $query->where(function (Builder $inner) use ($scriptIds, $aiModelIds) {
@@ -124,7 +124,7 @@ class DownloadController extends Controller
 
             if ($scriptIds !== []) {
                 $inner->orWhere(fn (Builder $q) => $q
-                    ->where('revisable_type', 'flowchart_script')
+                    ->where('revisable_type', 'script')
                     ->whereIn('revisable_id', $scriptIds));
             }
 
@@ -152,9 +152,9 @@ class DownloadController extends Controller
             ->count();
 
         $uniqueBoxes = $this->query($filters)
-            ->whereNotNull('ai_box_id')
+            ->whereNotNull('unysis_box_id')
             ->distinct()
-            ->count('ai_box_id');
+            ->count('unysis_box_id');
 
         $top = $this->query($filters)
             ->selectRaw('revisable_type, revisable_id, count(*) as downloads')

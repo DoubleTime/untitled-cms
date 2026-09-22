@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * AI Models for RPA-TOOL — the same five endpoints as FlowChart Scripts, minus
+ * AI Models for RPA-TOOL — the same five endpoints as Scripts, minus
  * Preview Images and plus the inference metadata.
  */
 class AiModelController extends CatalogueController

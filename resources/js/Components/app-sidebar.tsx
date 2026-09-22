@@ -49,7 +49,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       ? [{ title: "Customers", url: route('admin.marketplace.customers.index') }]
       : []),
     ...(permissions.includes('scripts.view')
-      ? [{ title: "FlowChart Scripts", url: route('admin.marketplace.scripts.index') }]
+      ? [{ title: "Scripts", url: route('admin.marketplace.scripts.index') }]
       : []),
     ...(permissions.includes('ai_models.view')
       ? [{ title: "AI Models", url: route('admin.marketplace.ai-models.index') }]
@@ -60,8 +60,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           { title: "Machine Models", url: route('admin.marketplace.machine-models.index') },
         ]
       : []),
-    ...(permissions.includes('ai_boxes.view')
-      ? [{ title: "AI Boxes", url: route('admin.marketplace.ai-boxes.index') }]
+    ...(permissions.includes('unysis_boxes.view')
+      ? [{ title: "UNYSIS Boxes", url: route('admin.marketplace.unysis-boxes.index') }]
       : []),
     ...(permissions.includes('downloads.view')
       ? [{ title: "Downloads", url: route('admin.marketplace.downloads.index') }]

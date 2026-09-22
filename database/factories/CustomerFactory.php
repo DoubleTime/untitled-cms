@@ -14,7 +14,8 @@ class CustomerFactory extends Factory
         $company = fake()->unique()->company();
 
         return [
-            'name' => $company,
+            // Short, unique, uppercase key, e.g. INARI-123.
+            'code' => strtoupper(fake()->unique()->bothify('?????-###')),
             'company' => $company,
             'contact_name' => fake()->name(),
             'contact_email' => fake()->unique()->safeEmail(),

@@ -5,23 +5,23 @@ namespace App\Providers;
 use App\Listeners\InjectUnsubscribeHeaders;
 use App\Listeners\LogSentEmail;
 use App\Listeners\StopSuppressedEmail;
-use App\Models\AiBox;
 use App\Models\AiModel;
 use App\Models\Customer;
 use App\Models\EmailLog;
-use App\Models\FlowchartScript;
 use App\Models\MachineBrand;
 use App\Models\MachineModel;
+use App\Models\Script;
 use App\Models\Setting;
+use App\Models\UnysisBox;
 use App\Models\User;
-use App\Policies\AiBoxPolicy;
 use App\Policies\AiModelPolicy;
 use App\Policies\CustomerPolicy;
 use App\Policies\EmailLogPolicy;
-use App\Policies\FlowchartScriptPolicy;
 use App\Policies\MachineBrandPolicy;
 use App\Policies\MachineModelPolicy;
+use App\Policies\ScriptPolicy;
 use App\Policies\SettingPolicy;
+use App\Policies\UnysisBoxPolicy;
 use App\Services\EmailWebhooks\Contracts\WebhookProvider;
 use App\Services\EmailWebhooks\MailgunWebhookProvider;
 use App\Services\EmailWebhooks\ResendWebhookProvider;
@@ -79,7 +79,7 @@ class AppServiceProvider extends ServiceProvider
         // personal access tokens are a morphMany on User, so User needs an alias too.
         Relation::enforceMorphMap([
             'ai_model' => AiModel::class,
-            'flowchart_script' => FlowchartScript::class,
+            'script' => Script::class,
             'user' => User::class,
         ]);
 
@@ -98,9 +98,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Customer::class, CustomerPolicy::class);
         Gate::policy(MachineBrand::class, MachineBrandPolicy::class);
         Gate::policy(MachineModel::class, MachineModelPolicy::class);
-        Gate::policy(FlowchartScript::class, FlowchartScriptPolicy::class);
+        Gate::policy(Script::class, ScriptPolicy::class);
         Gate::policy(AiModel::class, AiModelPolicy::class);
-        Gate::policy(AiBox::class, AiBoxPolicy::class);
+        Gate::policy(UnysisBox::class, UnysisBoxPolicy::class);
 
         // Email Logging & Suppression
         // ORDER MATTERS: StopSuppressedEmail must be registered first.
@@ -115,7 +115,7 @@ class AppServiceProvider extends ServiceProvider
      * Rate limiters for the RPA-TOOL API (routes/api.php).
      *
      * Laravel's plain `throttle:60,1` buckets authenticated callers by user id, but
-     * one Customer User may run several AI Boxes and each box is a separate client.
+     * one Customer User may run several UNYSIS Boxes and each box is a separate client.
      * The token is the box (its name is the motherboard UUID), so the token id is
      * the bucket; unauthenticated callers fall back to the IP.
      */

@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { FlowchartScript, PageProps } from '@/types';
+import { Script, PageProps } from '@/types';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { Switch } from '@/Components/ui/switch';
@@ -26,7 +26,7 @@ import {
 import { formatDateTime } from '@/Components/Marketplace/format';
 
 interface ScriptsIndexProps extends PageProps {
-    scripts: FlowchartScript[];
+    scripts: Script[];
     machineModels: MachineModelOption[];
     customers: CustomerOption[];
     showDeleted: boolean;
@@ -36,7 +36,7 @@ export default function Index({ scripts, machineModels, customers, showDeleted }
     useFlashToast();
     const { canCreate, canEdit, canDelete, canHardDelete } = usePage<PageProps>().props;
 
-    const columns = useMemo<DataTableColumnDef<FlowchartScript>[]>(
+    const columns = useMemo<DataTableColumnDef<Script>[]>(
         () => [
             {
                 accessorKey: 'name',
@@ -147,7 +147,7 @@ export default function Index({ scripts, machineModels, customers, showDeleted }
                                 {canDelete && !showDeleted && (
                                     <DropdownMenuItem
                                         onClick={() => {
-                                            if (confirm(`Delete the FlowChart Script "${script.name}"?`)) {
+                                            if (confirm(`Delete the Script "${script.name}"?`)) {
                                                 router.delete(
                                                     route('admin.marketplace.scripts.destroy', script.id)
                                                 );
@@ -186,13 +186,13 @@ export default function Index({ scripts, machineModels, customers, showDeleted }
     );
 
     return (
-        <AuthenticatedLayout header="FlowChart Scripts">
-            <Head title="FlowChart Scripts" />
+        <AuthenticatedLayout header="Scripts">
+            <Head title="Scripts" />
 
             <div className="flex flex-col gap-6">
                 <div className="flex justify-between items-center">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">FlowChart Scripts</h1>
+                        <h1 className="text-3xl font-bold tracking-tight">Scripts</h1>
                         <p className="text-muted-foreground">
                             Packaged automation sequences for one Machine Model, fetched by RPA-TOOL.
                         </p>
@@ -200,7 +200,7 @@ export default function Index({ scripts, machineModels, customers, showDeleted }
                     {canCreate && !showDeleted && (
                         <Link href={route('admin.marketplace.scripts.create')}>
                             <Button size="sm" className="h-8">
-                                <Plus className="mr-2 h-4 w-4" /> Add FlowChart Script
+                                <Plus className="mr-2 h-4 w-4" /> Add Script
                             </Button>
                         </Link>
                     )}

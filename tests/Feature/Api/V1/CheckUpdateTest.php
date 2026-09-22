@@ -3,8 +3,8 @@
 namespace Tests\Feature\Api\V1;
 
 use App\Models\AiModel;
-use App\Models\FlowchartScript;
 use App\Models\Revision;
+use App\Models\Script;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -33,7 +33,7 @@ class CheckUpdateTest extends ApiTestCase
 
     public function test_a_newer_released_revision_is_reported_as_an_update(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
 
         $this->makeRevision($script, Revision::STATUS_DEPRECATED, 'One');
         $latest = $this->makeRevision($script, Revision::STATUS_RELEASED, 'Two');
@@ -50,7 +50,7 @@ class CheckUpdateTest extends ApiTestCase
 
     public function test_holding_the_latest_released_revision_is_not_an_update(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $latest = $this->makeRevision($script, Revision::STATUS_RELEASED);
 
         $this->api()->getJson('/api/v1/scripts/'.$script->id.'/check-update?current='.$latest->number)
@@ -62,7 +62,7 @@ class CheckUpdateTest extends ApiTestCase
 
     public function test_an_unknown_current_number_reports_unknown(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $this->makeRevision($script);
 
         $this->api()->getJson('/api/v1/scripts/'.$script->id.'/check-update?current=99')
@@ -73,7 +73,7 @@ class CheckUpdateTest extends ApiTestCase
 
     public function test_a_draft_current_number_reports_unknown(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $this->makeRevision($script, Revision::STATUS_RELEASED);
         $draft = $this->makeRevision($script, Revision::STATUS_DRAFT);
 
@@ -84,7 +84,7 @@ class CheckUpdateTest extends ApiTestCase
 
     public function test_without_current_the_latest_release_is_simply_offered(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $latest = $this->makeRevision($script);
 
         $this->api()->getJson('/api/v1/scripts/'.$script->id.'/check-update')
@@ -96,7 +96,7 @@ class CheckUpdateTest extends ApiTestCase
 
     public function test_a_draft_only_entry_offers_nothing_even_when_current_is_unknown(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $this->makeRevision($script, Revision::STATUS_DRAFT);
 
         $this->api()->getJson('/api/v1/scripts/'.$script->id.'/check-update?current=42')
@@ -107,7 +107,7 @@ class CheckUpdateTest extends ApiTestCase
 
     public function test_an_entry_with_no_released_revision_has_no_update(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $this->makeRevision($script, Revision::STATUS_DRAFT);
 
         $this->api()->getJson('/api/v1/scripts/'.$script->id.'/check-update?current=1')
@@ -119,7 +119,7 @@ class CheckUpdateTest extends ApiTestCase
 
     public function test_a_non_numeric_current_is_a_validation_error(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $this->makeRevision($script);
 
         $this->api()->getJson('/api/v1/scripts/'.$script->id.'/check-update?current=abc')

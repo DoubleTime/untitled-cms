@@ -21,7 +21,7 @@ use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 /**
- * AI Models admin — CRUD and Revisions. Same shape as FlowchartScriptController
+ * AI Models admin — CRUD and Revisions. Same shape as ScriptController
  * minus Preview Images, plus the model-specific fields (framework, input size,
  * labels, notes).
  */
@@ -311,17 +311,17 @@ class AiModelController extends Controller
         return $aiModel->revisions()
             ->with(['uploader:id,name', 'releaser:id,name'])
             ->withCount('downloads')
-            // How many distinct AI Boxes pulled this Revision, alongside the raw
+            // How many distinct UNYSIS Boxes pulled this Revision, alongside the raw
             // total: one box retrying is not the same as ten boxes installing.
             ->addSelect(['unique_boxes_count' => Download::query()
-                ->selectRaw('count(distinct ai_box_id)')
+                ->selectRaw('count(distinct unysis_box_id)')
                 ->whereColumn('revision_id', 'revisions.id')])
             ->get();
     }
 
     /**
      * Totals for the header: every Download of this entry, and how many distinct
-     * AI Boxes are behind them.
+     * UNYSIS Boxes are behind them.
      *
      * @return array<string, int>
      */
@@ -333,7 +333,7 @@ class AiModelController extends Controller
 
         return [
             'total' => (clone $base)->count(),
-            'unique_boxes' => (clone $base)->whereNotNull('ai_box_id')->distinct()->count('ai_box_id'),
+            'unique_boxes' => (clone $base)->whereNotNull('unysis_box_id')->distinct()->count('unysis_box_id'),
         ];
     }
 

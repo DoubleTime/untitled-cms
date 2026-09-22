@@ -4,11 +4,11 @@ namespace Tests\Feature\Api\V1;
 
 use App\Models\AiModel;
 use App\Models\Customer;
-use App\Models\FlowchartScript;
-use App\Models\FlowchartScriptImage;
 use App\Models\MachineBrand;
 use App\Models\MachineModel;
 use App\Models\Revision;
+use App\Models\Script;
+use App\Models\ScriptImage;
 use App\Models\User;
 use App\Models\VaultFile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -83,19 +83,19 @@ class CatalogueReadTest extends ApiTestCase
         $this->assertContains('Somebody Else', $companies);
         $this->assertContains($this->user->customer->company, $companies);
         $this->assertCount(2, $companies);
-        $this->assertSame(['company', 'id'], collect($response->json('data.0'))->keys()->sort()->values()->all());
+        $this->assertSame(['code', 'company', 'id'], collect($response->json('data.0'))->keys()->sort()->values()->all());
         $this->assertSame($other->id, collect($response->json('data'))->firstWhere('company', 'Somebody Else')['id']);
     }
 
     public function test_an_entry_without_a_released_revision_is_hidden_from_the_list(): void
     {
-        $withRelease = FlowchartScript::factory()->create(['name' => 'Alpha']);
+        $withRelease = Script::factory()->create(['name' => 'Alpha']);
         $this->makeRevision($withRelease, Revision::STATUS_RELEASED);
 
-        $draftOnly = FlowchartScript::factory()->create(['name' => 'Beta']);
+        $draftOnly = Script::factory()->create(['name' => 'Beta']);
         $this->makeRevision($draftOnly, Revision::STATUS_DRAFT);
 
-        FlowchartScript::factory()->create(['name' => 'Gamma']);
+        Script::factory()->create(['name' => 'Gamma']);
 
         $response = $this->api()->getJson('/api/v1/scripts')->assertOk();
 
@@ -104,7 +104,7 @@ class CatalogueReadTest extends ApiTestCase
 
     public function test_a_deprecated_only_entry_is_hidden_from_the_list(): void
     {
-        $script = FlowchartScript::factory()->create(['name' => 'Retired']);
+        $script = Script::factory()->create(['name' => 'Retired']);
         $this->makeRevision($script, Revision::STATUS_DEPRECATED);
 
         $this->api()->getJson('/api/v1/scripts')
@@ -118,7 +118,7 @@ class CatalogueReadTest extends ApiTestCase
         $machineModel = MachineModel::factory()->create(['machine_brand_id' => $brand->id, 'name' => 'NXT III']);
         $customer = Customer::factory()->create(['company' => 'Inari']);
 
-        $script = FlowchartScript::factory()->create([
+        $script = Script::factory()->create([
             'name' => 'Tray feeder',
             'machine_model_id' => $machineModel->id,
             'customer_id' => $customer->id,
@@ -129,8 +129,8 @@ class CatalogueReadTest extends ApiTestCase
         $this->makeRevision($script, Revision::STATUS_DRAFT, 'Not yet');
 
         $vaultFile = VaultFile::factory()->create(['is_public' => true, 'extension' => 'png']);
-        FlowchartScriptImage::factory()->create([
-            'flowchart_script_id' => $script->id,
+        ScriptImage::factory()->create([
+            'script_id' => $script->id,
             'vault_file_id' => $vaultFile->id,
             'sort_order' => 0,
         ]);
@@ -152,7 +152,7 @@ class CatalogueReadTest extends ApiTestCase
 
     public function test_a_script_without_a_customer_reports_a_null_customer(): void
     {
-        $script = FlowchartScript::factory()->create(['customer_id' => null]);
+        $script = Script::factory()->create(['customer_id' => null]);
         $this->makeRevision($script);
 
         $this->api()->getJson('/api/v1/scripts')
@@ -168,8 +168,8 @@ class CatalogueReadTest extends ApiTestCase
         $modelB = MachineModel::factory()->create(['machine_brand_id' => $brandB->id]);
         $customer = Customer::factory()->create();
 
-        $a = FlowchartScript::factory()->create(['name' => 'A', 'machine_model_id' => $modelA->id, 'customer_id' => $customer->id]);
-        $b = FlowchartScript::factory()->create(['name' => 'B', 'machine_model_id' => $modelB->id, 'customer_id' => null]);
+        $a = Script::factory()->create(['name' => 'A', 'machine_model_id' => $modelA->id, 'customer_id' => $customer->id]);
+        $b = Script::factory()->create(['name' => 'B', 'machine_model_id' => $modelB->id, 'customer_id' => null]);
 
         $this->makeRevision($a);
         $this->makeRevision($b);
@@ -186,9 +186,9 @@ class CatalogueReadTest extends ApiTestCase
 
     public function test_the_q_filter_matches_name_and_description_case_insensitively(): void
     {
-        $byName = FlowchartScript::factory()->create(['name' => 'Solder Paste Inspection', 'description' => 'nothing']);
-        $byDescription = FlowchartScript::factory()->create(['name' => 'Zed', 'description' => 'Handles SOLDER joints']);
-        $neither = FlowchartScript::factory()->create(['name' => 'Conveyor', 'description' => 'belt']);
+        $byName = Script::factory()->create(['name' => 'Solder Paste Inspection', 'description' => 'nothing']);
+        $byDescription = Script::factory()->create(['name' => 'Zed', 'description' => 'Handles SOLDER joints']);
+        $neither = Script::factory()->create(['name' => 'Conveyor', 'description' => 'belt']);
 
         foreach ([$byName, $byDescription, $neither] as $script) {
             $this->makeRevision($script);
@@ -205,7 +205,7 @@ class CatalogueReadTest extends ApiTestCase
     public function test_the_list_is_ordered_by_name_and_paginated_with_a_capped_per_page(): void
     {
         foreach (['Charlie', 'alpha', 'Bravo'] as $name) {
-            $script = FlowchartScript::factory()->create(['name' => $name]);
+            $script = Script::factory()->create(['name' => $name]);
             $this->makeRevision($script);
         }
 
@@ -222,15 +222,15 @@ class CatalogueReadTest extends ApiTestCase
 
     public function test_the_detail_payload_shows_images_and_every_non_draft_revision(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
 
         $deprecated = $this->makeRevision($script, Revision::STATUS_DEPRECATED, 'One');
         $released = $this->makeRevision($script, Revision::STATUS_RELEASED, 'Two');
         $draft = $this->makeRevision($script, Revision::STATUS_DRAFT, 'Three');
 
         $vaultFile = VaultFile::factory()->create(['is_public' => true, 'extension' => 'png']);
-        FlowchartScriptImage::factory()->create([
-            'flowchart_script_id' => $script->id,
+        ScriptImage::factory()->create([
+            'script_id' => $script->id,
             'vault_file_id' => $vaultFile->id,
             'sort_order' => 0,
         ]);
@@ -252,7 +252,7 @@ class CatalogueReadTest extends ApiTestCase
 
     public function test_the_revisions_endpoint_returns_the_same_non_draft_list(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $released = $this->makeRevision($script, Revision::STATUS_RELEASED);
         $this->makeRevision($script, Revision::STATUS_DRAFT);
 
@@ -263,7 +263,7 @@ class CatalogueReadTest extends ApiTestCase
 
     public function test_a_soft_deleted_entry_is_not_found(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $this->makeRevision($script);
         $script->delete();
 

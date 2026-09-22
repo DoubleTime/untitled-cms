@@ -4,6 +4,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Server-side rendering
+    |--------------------------------------------------------------------------
+    |
+    | Off unless INERTIA_SSR_ENABLED=true and an SSR server is running. With the
+    | package default (on) every page render waits ~2s on a refused connection
+    | to 127.0.0.1:13714, which is enough to time the test suite out.
+    |
+    */
+
+    'ssr' => [
+        'enabled' => (bool) env('INERTIA_SSR_ENABLED', false),
+        'url' => env('INERTIA_SSR_URL', 'http://127.0.0.1:13714'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Pages
     |--------------------------------------------------------------------------
     |

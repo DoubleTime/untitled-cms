@@ -12,14 +12,14 @@ use App\Http\Controllers\EmailLogController;
 use App\Http\Controllers\EmailWebhookController;
 use App\Http\Controllers\FeedController;
 use App\Http\Controllers\LlmsController;
-use App\Http\Controllers\Marketplace\AiBoxController;
 use App\Http\Controllers\Marketplace\AiModelController;
 use App\Http\Controllers\Marketplace\CustomerController;
 use App\Http\Controllers\Marketplace\CustomerUserController;
 use App\Http\Controllers\Marketplace\DownloadController;
-use App\Http\Controllers\Marketplace\FlowchartScriptController;
 use App\Http\Controllers\Marketplace\MachineBrandController;
 use App\Http\Controllers\Marketplace\MachineModelController;
+use App\Http\Controllers\Marketplace\ScriptController;
+use App\Http\Controllers\Marketplace\UnysisBoxController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
@@ -146,24 +146,24 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'admin']
         Route::post('/customers/{customer}/users/{user}/send-password-reset', [CustomerUserController::class, 'sendPasswordReset'])
             ->name('customers.users.send-password-reset');
 
-        // Catalogue — FlowChart Scripts (Phase 3)
-        Route::resource('scripts', FlowchartScriptController::class);
-        Route::put('/scripts/{script}/images', [FlowchartScriptController::class, 'syncImages'])
+        // Catalogue — Scripts (Phase 3)
+        Route::resource('scripts', ScriptController::class);
+        Route::put('/scripts/{script}/images', [ScriptController::class, 'syncImages'])
             ->name('scripts.images.sync');
-        Route::post('/scripts/{script}/restore', [FlowchartScriptController::class, 'restore'])
+        Route::post('/scripts/{script}/restore', [ScriptController::class, 'restore'])
             ->withTrashed()->name('scripts.restore');
-        Route::delete('/scripts/{script}/force', [FlowchartScriptController::class, 'forceDestroy'])
+        Route::delete('/scripts/{script}/force', [ScriptController::class, 'forceDestroy'])
             ->withTrashed()->name('scripts.force-destroy');
 
-        Route::post('/scripts/{script}/revisions', [FlowchartScriptController::class, 'storeRevision'])
+        Route::post('/scripts/{script}/revisions', [ScriptController::class, 'storeRevision'])
             ->middleware('throttle:30,1')->name('scripts.revisions.store');
-        Route::post('/scripts/{script}/revisions/{revision}/release', [FlowchartScriptController::class, 'releaseRevision'])
+        Route::post('/scripts/{script}/revisions/{revision}/release', [ScriptController::class, 'releaseRevision'])
             ->name('scripts.revisions.release');
-        Route::post('/scripts/{script}/revisions/{revision}/deprecate', [FlowchartScriptController::class, 'deprecateRevision'])
+        Route::post('/scripts/{script}/revisions/{revision}/deprecate', [ScriptController::class, 'deprecateRevision'])
             ->name('scripts.revisions.deprecate');
-        Route::get('/scripts/{script}/revisions/{revision}/download', [FlowchartScriptController::class, 'downloadRevision'])
+        Route::get('/scripts/{script}/revisions/{revision}/download', [ScriptController::class, 'downloadRevision'])
             ->name('scripts.revisions.download');
-        Route::delete('/scripts/{script}/revisions/{revision}', [FlowchartScriptController::class, 'destroyRevision'])
+        Route::delete('/scripts/{script}/revisions/{revision}', [ScriptController::class, 'destroyRevision'])
             ->name('scripts.revisions.destroy');
 
         // Catalogue — AI Models (Phase 3)
@@ -184,11 +184,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'admin']
         Route::delete('/ai-models/{ai_model}/revisions/{revision}', [AiModelController::class, 'destroyRevision'])
             ->name('ai-models.revisions.destroy');
 
-        // AI Boxes (Phase 5) — auto-registered by RPA-TOOL, so no create/store.
-        Route::resource('ai-boxes', AiBoxController::class)->only(['index', 'show', 'edit', 'update', 'destroy']);
-        Route::post('/ai-boxes/{ai_box}/block', [AiBoxController::class, 'block'])->name('ai-boxes.block');
-        Route::post('/ai-boxes/{ai_box}/unblock', [AiBoxController::class, 'unblock'])->name('ai-boxes.unblock');
-        Route::post('/ai-boxes/{ai_box}/activate', [AiBoxController::class, 'activate'])->name('ai-boxes.activate');
+        // UNYSIS Boxes (Phase 5) — auto-registered by RPA-TOOL, so no create/store.
+        Route::resource('unysis-boxes', UnysisBoxController::class)->only(['index', 'show', 'edit', 'update', 'destroy']);
+        Route::post('/unysis-boxes/{unysis_box}/block', [UnysisBoxController::class, 'block'])->name('unysis-boxes.block');
+        Route::post('/unysis-boxes/{unysis_box}/unblock', [UnysisBoxController::class, 'unblock'])->name('unysis-boxes.unblock');
+        Route::post('/unysis-boxes/{unysis_box}/activate', [UnysisBoxController::class, 'activate'])->name('unysis-boxes.activate');
 
         // Download log (Phase 5)
         Route::get('/downloads', [DownloadController::class, 'index'])

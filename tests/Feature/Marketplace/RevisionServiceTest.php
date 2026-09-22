@@ -4,8 +4,8 @@ namespace Tests\Feature\Marketplace;
 
 use App\Exceptions\Marketplace\InvalidRevisionTransition;
 use App\Models\AiModel;
-use App\Models\FlowchartScript;
 use App\Models\Revision;
+use App\Models\Script;
 use App\Models\User;
 use App\Services\ClamAvScanner;
 use App\Services\Marketplace\RevisionService;
@@ -49,20 +49,20 @@ class RevisionServiceTest extends TestCase
 
     public function test_the_first_revision_is_number_one_and_is_stored_under_the_morph_alias(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
 
         $revision = $this->service()->upload($script, $this->zipFile(), 'First cut', $this->uploader);
 
         $this->assertSame(1, $revision->number);
-        $this->assertSame('flowchart_script', $revision->revisable_type);
+        $this->assertSame('script', $revision->revisable_type);
         $this->assertSame(Revision::STATUS_DRAFT, $revision->status);
-        $this->assertSame("flowchart_script/{$script->id}/1.zip", $revision->disk_path);
+        $this->assertSame("script/{$script->id}/1.zip", $revision->disk_path);
         Storage::disk('marketplace')->assertExists($revision->disk_path);
     }
 
     public function test_numbering_increments_per_revisable(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
 
         $first = $this->service()->upload($script, $this->zipFile(), 'One', $this->uploader);
         $second = $this->service()->upload($script, $this->zipFile(), 'Two', $this->uploader);
@@ -73,8 +73,8 @@ class RevisionServiceTest extends TestCase
 
     public function test_numbering_is_independent_between_two_scripts(): void
     {
-        $a = FlowchartScript::factory()->create();
-        $b = FlowchartScript::factory()->create();
+        $a = Script::factory()->create();
+        $b = Script::factory()->create();
 
         $this->service()->upload($a, $this->zipFile(), 'A1', $this->uploader);
         $this->service()->upload($a, $this->zipFile(), 'A2', $this->uploader);
@@ -86,7 +86,7 @@ class RevisionServiceTest extends TestCase
 
     public function test_numbering_is_independent_between_an_ai_model_and_a_script(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $aiModel = AiModel::factory()->create();
 
         $this->service()->upload($script, $this->zipFile(), 'Script', $this->uploader);
@@ -99,7 +99,7 @@ class RevisionServiceTest extends TestCase
 
     public function test_the_sha256_matches_the_uploaded_bytes(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $content = "PK\x03\x04".str_repeat('u', 128);
         $file = UploadedFile::fake()->createWithContent('bundle.zip', $content);
 
@@ -112,7 +112,7 @@ class RevisionServiceTest extends TestCase
 
     public function test_a_wrong_extension_is_rejected(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
 
         $this->expectException(ValidationException::class);
 
@@ -130,7 +130,7 @@ class RevisionServiceTest extends TestCase
 
     public function test_a_double_extension_is_rejected(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
 
         $this->expectException(ValidationException::class);
 
@@ -139,7 +139,7 @@ class RevisionServiceTest extends TestCase
 
     public function test_bad_magic_bytes_are_rejected(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $file = UploadedFile::fake()->createWithContent('bundle.zip', 'not a zip at all');
 
         $this->expectException(ValidationException::class);
@@ -161,7 +161,7 @@ class RevisionServiceTest extends TestCase
     {
         config(['marketplace.max_upload_kb' => 1]);
 
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $file = UploadedFile::fake()->createWithContent('bundle.zip', "PK\x03\x04".str_repeat('x', 4096));
 
         $this->expectException(ValidationException::class);
@@ -177,7 +177,7 @@ class RevisionServiceTest extends TestCase
         $scanner->shouldReceive('scan')->once()->andReturn(null);
         $this->app->instance(ClamAvScanner::class, $scanner);
 
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $revision = $this->service()->upload($script, $this->zipFile(), 'Scanned', $this->uploader);
 
         $this->assertSame(1, $revision->number);
@@ -191,7 +191,7 @@ class RevisionServiceTest extends TestCase
         $scanner->shouldNotReceive('scan');
         $this->app->instance(ClamAvScanner::class, $scanner);
 
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
 
         $this->service()->upload($script, $this->zipFile(), 'Unscanned', $this->uploader);
     }
@@ -204,7 +204,7 @@ class RevisionServiceTest extends TestCase
         $scanner->shouldReceive('scan')->once()->andReturn('Eicar-Test-Signature');
         $this->app->instance(ClamAvScanner::class, $scanner);
 
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
 
         $this->expectException(ValidationException::class);
 
@@ -213,7 +213,7 @@ class RevisionServiceTest extends TestCase
 
     public function test_a_draft_can_be_released_and_then_deprecated(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $revision = $this->service()->upload($script, $this->zipFile(), 'Ship it', $this->uploader);
 
         $this->service()->release($revision, $this->uploader);
@@ -230,7 +230,7 @@ class RevisionServiceTest extends TestCase
 
     public function test_a_released_revision_cannot_be_released_again(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $revision = Revision::factory()->released()->create([
             'revisable_type' => $script->getMorphClass(),
             'revisable_id' => $script->id,
@@ -243,7 +243,7 @@ class RevisionServiceTest extends TestCase
 
     public function test_a_draft_cannot_be_deprecated(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $revision = Revision::factory()->create([
             'revisable_type' => $script->getMorphClass(),
             'revisable_id' => $script->id,
@@ -256,7 +256,7 @@ class RevisionServiceTest extends TestCase
 
     public function test_a_deprecated_revision_has_no_path_back(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $revision = Revision::factory()->deprecated()->create([
             'revisable_type' => $script->getMorphClass(),
             'revisable_id' => $script->id,
@@ -269,7 +269,7 @@ class RevisionServiceTest extends TestCase
 
     public function test_delete_file_removes_the_stored_file(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $revision = $this->service()->upload($script, $this->zipFile(), 'Gone soon', $this->uploader);
 
         Storage::disk('marketplace')->assertExists($revision->disk_path);

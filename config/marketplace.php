@@ -14,10 +14,10 @@ return [
     // Allowed extensions per catalogue entry type.
     'allowed_extensions' => [
         'ai_model' => ['h5'],
-        'flowchart_script' => ['zip'],
+        'script' => ['zip'],
     ],
 
-    // Lifetime of a Sanctum token issued to an AI Box, in days.
+    // Lifetime of a Sanctum token issued to an UNYSIS Box, in days.
     'token_ttl_days' => env('MARKETPLACE_TOKEN_TTL_DAYS', 30),
 
 ];

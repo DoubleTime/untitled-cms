@@ -122,7 +122,7 @@ class Role extends Model
             'machines.edit',
             'machines.delete',
 
-            // Marketplace — FlowChart Scripts
+            // Marketplace — Scripts
             'scripts.view',
             'scripts.create',
             'scripts.edit',
@@ -140,10 +140,10 @@ class Role extends Model
             'ai_models.release',
             'ai_models.hard_delete',
 
-            // Marketplace — AI Boxes
-            'ai_boxes.view',
-            'ai_boxes.edit',
-            'ai_boxes.block',
+            // Marketplace — UNYSIS Boxes
+            'unysis_boxes.view',
+            'unysis_boxes.edit',
+            'unysis_boxes.block',
 
             // Marketplace — Downloads
             'downloads.view',

@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
- * An immutable, sequentially numbered upload of an AI Model or FlowChart Script,
+ * An immutable, sequentially numbered upload of an AI Model or Script,
  * carrying a change note and the Team Member who uploaded it.
  *
  * Only released Revisions are offered to RPA-TOOL by default. The numbering is

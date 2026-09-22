@@ -9,7 +9,7 @@ import { FormSplitLayout, StickyFormFooter } from '@/Components/Common/FormLayou
 
 export default function Create() {
     const { data, setData, post, processing, errors, isDirty } = useForm({
-        name: '',
+        code: '',
         company: '',
         contact_name: '',
         contact_email: '',
@@ -53,7 +53,7 @@ export default function Create() {
                         <CardHeader>
                             <CardTitle>Customer</CardTitle>
                             <CardDescription>
-                                A company that owns UNYSIS AI Boxes, for example Inari.
+                                A company that owns UNYSIS Boxes, for example Inari.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
@@ -72,16 +72,16 @@ export default function Create() {
                             </div>
 
                             <div>
-                                <Label htmlFor="name">Name</Label>
+                                <Label htmlFor="code">Code</Label>
                                 <Input
-                                    id="name"
+                                    id="code"
                                     type="text"
-                                    value={data.name}
-                                    onChange={(e) => setData('name', e.target.value)}
+                                    value={data.code}
+                                    onChange={(e) => setData('code', e.target.value)}
                                     className="mt-1 block w-full"
                                     required
                                 />
-                                {errors.name && <p className="text-sm text-destructive mt-1">{errors.name}</p>}
+                                {errors.code && <p className="text-sm text-destructive mt-1">{errors.code}</p>}
                             </div>
 
                             <div className="grid gap-6 md:grid-cols-2">

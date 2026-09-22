@@ -4,8 +4,8 @@ namespace App\Services\Marketplace;
 
 use App\Exceptions\Marketplace\InvalidRevisionTransition;
 use App\Models\AiModel;
-use App\Models\FlowchartScript;
 use App\Models\Revision;
+use App\Models\Script;
 use App\Models\User;
 use App\Services\ClamAvScanner;
 use Illuminate\Database\QueryException;
@@ -16,7 +16,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Uploads and lifecycle for Revisions — the immutable, sequentially numbered
- * uploads of an AI Model or FlowChart Script.
+ * uploads of an AI Model or Script.
  *
  * Revision files bypass the Vault (docs/adr/0003): they live on the private
  * `marketplace` disk under {morph alias}/{revisable id}/{number}.{ext} and are
@@ -57,7 +57,7 @@ class RevisionService
      * @throws ValidationException
      */
     public function upload(
-        FlowchartScript|AiModel $revisable,
+        Script|AiModel $revisable,
         UploadedFile $file,
         string $changeNote,
         User $uploader,
@@ -170,7 +170,7 @@ class RevisionService
     /**
      * The next Revision number for this entry — max + 1, per revisable.
      */
-    public function nextNumber(FlowchartScript|AiModel $revisable): int
+    public function nextNumber(Script|AiModel $revisable): int
     {
         $max = Revision::query()
             ->where('revisable_type', $revisable->getMorphClass())
@@ -185,7 +185,7 @@ class RevisionService
      *
      * @return array<int, string>
      */
-    public function allowedExtensions(FlowchartScript|AiModel $revisable): array
+    public function allowedExtensions(Script|AiModel $revisable): array
     {
         return (array) (config('marketplace.allowed_extensions')[$revisable->getMorphClass()] ?? []);
     }

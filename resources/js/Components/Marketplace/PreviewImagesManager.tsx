@@ -21,7 +21,7 @@ import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { GripVertical, ImagePlus, Trash2 } from 'lucide-react';
 import { useVaultPicker } from '@/hooks/use-vault-picker';
-import type { FlowchartScriptImage } from '@/types';
+import type { ScriptImage } from '@/types';
 
 export interface PreviewImage {
     vault_file_id: string;
@@ -31,7 +31,7 @@ export interface PreviewImage {
 
 interface PreviewImagesManagerProps {
     scriptId: string;
-    images: FlowchartScriptImage[];
+    images: ScriptImage[];
     canEdit: boolean;
 }
 
@@ -84,12 +84,12 @@ function SortableImage({
 }
 
 /**
- * Preview Images for a FlowChart Script — flow diagrams or screenshots so Team
+ * Preview Images for a Script — flow diagrams or screenshots so Team
  * Members and Customer Users can recognise it before downloading. They are
  * ordinary public Vault media; the first image is the cover.
  */
 export default function PreviewImagesManager({ scriptId, images, canEdit }: PreviewImagesManagerProps) {
-    const toPreview = (list: FlowchartScriptImage[]): PreviewImage[] =>
+    const toPreview = (list: ScriptImage[]): PreviewImage[] =>
         list
             .filter((image) => image.vault_file)
             .map((image) => ({
@@ -171,7 +171,7 @@ export default function PreviewImagesManager({ scriptId, images, canEdit }: Prev
         <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
                 <p className="text-sm text-muted-foreground">
-                    Preview Images help Team Members and Customer Users recognise this FlowChart Script. Drag to
+                    Preview Images help Team Members and Customer Users recognise this Script. Drag to
                     reorder — the first image is the cover.
                 </p>
                 {canEdit && (

@@ -194,7 +194,7 @@ export default function Index({ aiModels, machineModels, customers, showDeleted 
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">AI Models</h1>
                         <p className="text-muted-foreground">
-                            Trained inference models published on their own, independent of any FlowChart Script.
+                            Trained inference models published on their own, independent of any Script.
                         </p>
                     </div>
                     {canCreate && !showDeleted && (

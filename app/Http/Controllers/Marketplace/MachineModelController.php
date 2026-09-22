@@ -20,7 +20,7 @@ class MachineModelController extends Controller
         Gate::authorize('viewAny', MachineModel::class);
 
         $machineModels = MachineModel::with('machineBrand:id,name')
-            ->withCount(['flowchartScripts', 'aiModels'])
+            ->withCount(['scripts', 'aiModels'])
             ->orderBy('name')
             ->get();
 
@@ -93,9 +93,9 @@ class MachineModelController extends Controller
         Gate::authorize('delete', $machineModel);
 
         // No cascade: catalogue entries targeting this Machine Model must be moved first.
-        if ($machineModel->flowchartScripts()->exists() || $machineModel->aiModels()->exists()) {
+        if ($machineModel->scripts()->exists() || $machineModel->aiModels()->exists()) {
             return redirect()->route('admin.marketplace.machine-models.index')
-                ->with('error', 'This Machine Model still has FlowChart Scripts or AI Models. Delete or reassign them first.');
+                ->with('error', 'This Machine Model still has Scripts or AI Models. Delete or reassign them first.');
         }
 
         $name = $machineModel->name;

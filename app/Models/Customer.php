@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * A company that owns AI Boxes and has its own Customer Users.
+ * A company that owns UNYSIS Boxes and has its own Customer Users.
  *
  * The Customer label on a catalogue entry is a secondary filter, never an access
  * boundary — every authenticated Customer User sees the whole catalogue (docs/adr/0001).
@@ -19,7 +19,7 @@ class Customer extends Model
     use HasFactory, HasUlidKey;
 
     protected $fillable = [
-        'name',
+        'code',
         'company',
         'contact_name',
         'contact_email',
@@ -37,14 +37,14 @@ class Customer extends Model
         return $this->hasMany(User::class);
     }
 
-    public function aiBoxes(): HasMany
+    public function unysisBoxes(): HasMany
     {
-        return $this->hasMany(AiBox::class);
+        return $this->hasMany(UnysisBox::class);
     }
 
-    public function flowchartScripts(): HasMany
+    public function scripts(): HasMany
     {
-        return $this->hasMany(FlowchartScript::class);
+        return $this->hasMany(Script::class);
     }
 
     public function aiModels(): HasMany

@@ -12,11 +12,11 @@ import {
 } from '@/Components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { StickyFormFooter } from '@/Components/Common/FormLayouts';
-import { FlowchartScript, PageProps } from '@/types';
+import { Script, PageProps } from '@/types';
 import type { CustomerOption, MachineModelOption } from '@/Components/Marketplace/CatalogueFilters';
 
 interface ScriptEditProps extends PageProps {
-    script: FlowchartScript;
+    script: Script;
     machineModels: MachineModelOption[];
     customers: CustomerOption[];
 }
@@ -38,7 +38,7 @@ export default function Edit({ script, machineModels, customers }: ScriptEditPro
             <Head title={`Edit ${script.name}`} />
 
             <div className="flex flex-col gap-4 pb-20">
-                <h1 className="text-2xl font-bold">Edit FlowChart Script</h1>
+                <h1 className="text-2xl font-bold">Edit Script</h1>
 
                 <Card className="max-w-2xl">
                     <CardHeader>

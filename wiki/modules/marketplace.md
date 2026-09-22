@@ -1,6 +1,6 @@
 # Marketplace
 
-> Catalogue of AI Models and FlowChart Scripts that run on UNYSIS AI Boxes, fetched by RPA-TOOL
+> Catalogue of AI Models and Scripts that run on UNYSIS Boxes, fetched by RPA-TOOL
 
 Last updated: 2026-09-22 (Phase 5)
 
@@ -9,10 +9,10 @@ The implementation plan is [`docs/marketplace-plan.md`](../../docs/marketplace-p
 
 **Status: Phases 1-5 complete; Phase 6 (CMS strip) pending.** Phase 1 gave the schema, models,
 permissions, config and the private disk; Phase 2 added the Customers, Customer User and Machines
-admin plus the web-login rejection; Phase 3 added the FlowChart Scripts and AI Models admin,
+admin plus the web-login rejection; Phase 3 added the Scripts and AI Models admin,
 `RevisionService`, `DownloadService`, the Revision lifecycle, Preview Images and soft/hard delete;
-Phase 4 added `routes/api.php`, Sanctum login, AI Box auto-registration and every read + download
-endpoint; Phase 5 adds the AI Boxes admin, the Download log and the derived installed-revision view.
+Phase 4 added `routes/api.php`, Sanctum login, UNYSIS Box auto-registration and every read + download
+endpoint; Phase 5 adds the UNYSIS Boxes admin, the Download log and the derived installed-revision view.
 The endpoint reference written for the RPA-TOOL developers is
 [`docs/api/rpa-tool-v1.md`](../../docs/api/rpa-tool-v1.md).
 
@@ -21,11 +21,11 @@ The endpoint reference written for the RPA-TOOL developers is
 UNYSIS Team Members publish two kinds of catalogue entry, both targeting one Machine Model:
 
 - **AI Model** — a trained inference model published on its own (`.h5` files).
-- **FlowChart Script** — a packaged automation sequence bundling a flow definition with the AI models and libraries it needs (`.zip` bundles).
+- **Script** — a packaged automation sequence bundling a flow definition with the AI models and libraries it needs (`.zip` bundles).
 
 Each entry accumulates **Revisions**: immutable, sequentially numbered uploads with a change note.
 Only `released` Revisions are offered to RPA-TOOL by default. **Customer Users** sign in from RPA-TOOL on an
-**AI Box**, and every fetch is recorded as a **Download**.
+**UNYSIS Box**, and every fetch is recorded as a **Download**.
 
 ## Tables
 
@@ -35,39 +35,39 @@ see [architecture/datastore](../architecture/datastore.md). Migration:
 
 | Table | Purpose / notable columns |
 |---|---|
-| `customers` | name, company, contact_*, notes, is_active |
+| `customers` | code (unique), company, contact_*, notes, is_active |
 | `users` (altered) | nullable indexed `customer_id` — set only for Customer Users |
 | `machine_brands` | name **unique**, slug |
 | `machine_models` | machine_brand_id, name, slug, description, is_active; **unique (machine_brand_id, name)** |
-| `flowchart_scripts` | machine_model_id, customer_id?, name, slug, description, created_by, `deleted_at` |
-| `flowchart_script_images` | flowchart_script_id, vault_file_id, sort_order |
+| `scripts` | machine_model_id, customer_id?, name, slug, description, created_by, `deleted_at` |
+| `script_images` | script_id, vault_file_id, sort_order |
 | `ai_models` | machine_model_id, customer_id?, name, slug, description, framework, input_size, labels, notes, created_by, `deleted_at` |
 | `revisions` | revisable_type/_id, number, status, change_note, original_filename, disk_path, size_bytes, sha256, mime, uploaded_by, released_by, released_at, deprecated_at; **unique (revisable_type, revisable_id, number)** |
-| `ai_boxes` | customer_id, motherboard_uuid **unique**, name, location, machine_model_id?, status, last_seen_at, last_ip, first_user_id |
-| `downloads` | revision_id, revisable_type/_id, user_id, ai_box_id?, source, ip, user_agent |
+| `unysis_boxes` | customer_id, motherboard_uuid **unique**, name, location, machine_model_id?, status, last_seen_at, last_ip, first_user_id |
+| `downloads` | revision_id, revisable_type/_id, user_id, unysis_box_id?, source, ip, user_agent |
 
 Derived, never stored: download totals, unique-box counts, and the "installed revision" per box
 (the latest download per box per entry).
 
 Status columns are plain strings with a default — not native enums — so the same DDL runs on SQLite (tests)
 and PostgreSQL (production). The repo uses no PHP backed enums; the allowed values live as class constants
-(`Revision::STATUS_*`, `AiBox::STATUS_*`, `Download::SOURCE_*`).
+(`Revision::STATUS_*`, `UnysisBox::STATUS_*`, `Download::SOURCE_*`).
 
 ## Models
 
-`app/Models/`: `Customer`, `MachineBrand`, `MachineModel`, `FlowchartScript`, `FlowchartScriptImage`,
-`AiModel`, `Revision`, `AiBox`, `Download`. All plain Eloquent.
+`app/Models/`: `Customer`, `MachineBrand`, `MachineModel`, `Script`, `ScriptImage`,
+`AiModel`, `Revision`, `UnysisBox`, `Download`. All plain Eloquent.
 
 - `Revision` is polymorphic (`revisable()` morphTo) so both entry types share one revision/download
   implementation while staying separate entities in the UI and the API. `Relation::enforceMorphMap()`
-  in `AppServiceProvider` maps the aliases, so `revisable_type` holds `flowchart_script` / `ai_model`,
+  in `AppServiceProvider` maps the aliases, so `revisable_type` holds `script` / `ai_model`,
   and `getMorphClass()` is what `RevisionService` keys `config('marketplace.allowed_extensions')` and
   the storage path on.
-- `App\Models\Concerns\HasRevisions` is used by `FlowchartScript` and `AiModel` and provides
+- `App\Models\Concerns\HasRevisions` is used by `Script` and `AiModel` and provides
   `revisions()` (morphMany, `number` desc), `latestReleasedRevision()` (ignores draft and deprecated),
   and `downloads()`.
-- `FlowchartScript` and `AiModel` are soft-deleting; hard delete is a separate permission.
-- `FlowchartScriptImage` belongs to a `VaultFile` — Preview Images are ordinary public Vault media,
+- `Script` and `AiModel` are soft-deleting; hard delete is a separate permission.
+- `ScriptImage` belongs to a `VaultFile` — Preview Images are ordinary public Vault media,
   unlike Revision files (see below).
 - `User::customer()` and `User::isCustomerUser()` were added; `customer_id` is fillable.
   `isCustomerUser()` is a label check, **not** an authorisation check.
@@ -84,7 +84,7 @@ customers.view|create|edit|delete
 machines.view|create|edit|delete                  (brands + models)
 scripts.view|create|edit|delete|upload|release|hard_delete
 ai_models.view|create|edit|delete|upload|release|hard_delete
-ai_boxes.view|edit|block
+unysis_boxes.view|edit|block
 downloads.view
 ```
 
@@ -103,7 +103,7 @@ It also seeds a `customer` role: slug `customer`, no permissions, `backend_acces
 |---|---|---|
 | `disk` | `marketplace` | `MARKETPLACE_DISK` |
 | `max_upload_kb` | `1048576` (1 GB) | `MARKETPLACE_MAX_UPLOAD_KB` |
-| `allowed_extensions` | `['ai_model' => ['h5'], 'flowchart_script' => ['zip']]` | — |
+| `allowed_extensions` | `['ai_model' => ['h5'], 'script' => ['zip']]` | — |
 | `token_ttl_days` | `30` | `MARKETPLACE_TOKEN_TTL_DAYS` |
 
 `config/filesystems.php` gains a private `marketplace` disk (`local` driver, `storage/app/marketplace`).
@@ -116,8 +116,8 @@ endpoints. Preview Images still use the [Vault](vault.md) because they are ordin
 
 Per docs/adr/0001, the Customer label is a **secondary filter, never an access wall** — every authenticated
 Customer User sees the whole catalogue, and the primary axis is Machine Model. Nothing customer-confidential
-may be uploaded. Per docs/adr/0002, AI Boxes identify by the motherboard UUID they report under a human
-Customer User login; download attribution (`Customer User + AI Box`) is derived from the API token, never
+may be uploaded. Per docs/adr/0002, UNYSIS Boxes identify by the motherboard UUID they report under a human
+Customer User login; download attribution (`Customer User + UNYSIS Box`) is derived from the API token, never
 from request parameters.
 
 ## Admin UI (Phase 2)
@@ -155,8 +155,8 @@ the schema's composite unique index. Slugs are never user input — controllers 
 | Deleting | Refused when | Result |
 |---|---|---|
 | Machine Brand | it still has Machine Models | flash `error`, nothing deleted |
-| Machine Model | it still has FlowChart Scripts or AI Models | flash `error`, nothing deleted |
-| Customer | it still has Customer Users or AI Boxes | flash `error`, nothing deleted |
+| Machine Model | it still has Scripts or AI Models | flash `error`, nothing deleted |
+| Customer | it still has Customer Users or UNYSIS Boxes | flash `error`, nothing deleted |
 
 ### Inertia pages (`resources/js/Pages/Marketplace/`)
 
@@ -191,7 +191,7 @@ Created from the Customer detail page. A new Customer User always gets:
 Leave the password blank and the account is created with a random one and `Password::sendResetLink()`
 is sent, so the Customer User chooses their own.
 
-Deactivating also deletes every Sanctum token (`$user->tokens()->delete()`), so an AI Box already
+Deactivating also deletes every Sanctum token (`$user->tokens()->delete()`), so an UNYSIS Box already
 holding one stops immediately. "Revoke all sessions" does the same without touching `is_active`, and
 flashes the count revoked.
 
@@ -202,7 +202,7 @@ flashes the count revoked.
   `database/migrations/2026_09_23_000001_create_personal_access_tokens_table.php` creates the same
   table with a **string** `tokenable_id`.
 - `Relation::enforceMorphMap()` makes the morph map exhaustive, so `'user' => User::class` had to be
-  added alongside `ai_model` and `flowchart_script` — Sanctum's `tokens()` is a morphMany on `User`.
+  added alongside `ai_model` and `script` — Sanctum's `tokens()` is a morphMany on `User`.
 
 ## Web login is closed to Customer Users
 
@@ -231,10 +231,10 @@ backend access.
 
 ### RevisionService
 
-`upload(FlowchartScript|AiModel $revisable, UploadedFile $file, string $changeNote, User $uploader): Revision`
+`upload(Script|AiModel $revisable, UploadedFile $file, string $changeNote, User $uploader): Revision`
 
 1. **Extension** — must be in `config('marketplace.allowed_extensions')[$revisable->getMorphClass()]`
-   (`flowchart_script` -> `zip`, `ai_model` -> `h5`). The morph alias comes from `getMorphClass()`, so the
+   (`script` -> `zip`, `ai_model` -> `h5`). The morph alias comes from `getMorphClass()`, so the
    enforced morph map in `AppServiceProvider` is the single source of the key.
 2. **Double extension** — the same idea as `app/Vault/Pipes/DetectDoubleExtension.php`, reimplemented in
    the service because Revision files never enter the Vault pipeline. `payload.exe.zip` is refused.
@@ -270,35 +270,35 @@ draft ------------->  released  ------------->  deprecated
 
 ### DownloadService
 
-- `record(Revision, ?User, ?AiBox, string $source, Request): Download` — `web` from the admin pages,
+- `record(Revision, ?User, ?UnysisBox, string $source, Request): Download` — `web` from the admin pages,
   `api` from the RPA-TOOL download endpoints (Phase 4).
 - `stream(Revision): StreamedResponse` — `Storage::disk('marketplace')->download()` under the
   `original_filename`, with `X-Checksum-SHA256` and `X-Revision-Number` headers so the caller can verify
   what it got.
 
-### AiBoxService (Phase 4)
+### UnysisBoxService (Phase 4)
 
-`resolve(Customer, string $motherboardUuid, ?string $name, string $ip, User): AiBox` — normalises the
+`resolve(Customer, string $motherboardUuid, ?string $name, string $ip, User): UnysisBox` — normalises the
 UUID (trim + lowercase), finds the box or creates it with `status = pending` and `first_user_id`, and
 always bumps `last_seen_at` / `last_ip`. It throws
-`App\Exceptions\Marketplace\AiBoxBelongsToAnotherCustomer` when the UUID is registered to a
-different Customer (never reassigned silently) and `AiBoxBlocked` when the box is blocked; both come
+`App\Exceptions\Marketplace\UnysisBoxBelongsToAnotherCustomer` when the UUID is registered to a
+different Customer (never reassigned silently) and `UnysisBoxBlocked` when the box is blocked; both come
 back as a 403 carrying the exception message. A client-supplied `box_name` only ever fills a
 **blank** name — a Team Member's label is never overwritten.
 
-`touch(AiBox, ?string $ip)` is the per-request presence write, throttled by
-`AiBoxService::TOUCH_INTERVAL_SECONDS` (60): a box seen inside that window from the same IP is not
+`touch(UnysisBox, ?string $ip)` is the per-request presence write, throttled by
+`UnysisBoxService::TOUCH_INTERVAL_SECONDS` (60): a box seen inside that window from the same IP is not
 written again, so a burst of catalogue reads is not a burst of `UPDATE`s.
 
-`AiBoxService::normaliseUuid()` is the single definition of the comparison form, used by the service
-and by `ResolveAiBox`.
+`UnysisBoxService::normaliseUuid()` is the single definition of the comparison form, used by the service
+and by `ResolveUnysisBox`.
 
 ### Storage layout
 
 ```
 storage/app/marketplace/
-  flowchart_script/{script id}/1.zip
-  flowchart_script/{script id}/2.zip
+  script/{script id}/1.zip
+  script/{script id}/2.zip
   ai_model/{ai model id}/1.h5
 ```
 
@@ -328,7 +328,7 @@ in kilobytes. PHP discards a body larger than `post_max_size` **before** validat
 | `admin.marketplace.scripts.revisions.destroy` | `DELETE .../{revision}` | `scripts.hard_delete` |
 | `admin.marketplace.ai-models.*` | the same set, minus images | `ai_models.*` |
 
-`FlowchartScriptPolicy` and `AiModelPolicy` add `upload`, `release` and `hardDelete` on top of the usual
+`ScriptPolicy` and `AiModelPolicy` add `upload`, `release` and `hardDelete` on top of the usual
 five and are registered in `AppServiceProvider::boot()`. Routes that take a soft-deleted entry
 (`restore`, `force`) are declared `->withTrashed()`. A Revision that does not belong to the entry in the
 URL 404s (`assertBelongsTo`).
@@ -340,7 +340,7 @@ the only released one — the flash then warns how many recorded Downloads refer
 **Download rows are never deleted.**
 
 **Preview Images.** `syncImages` takes an ordered `vault_file_ids[]`, validated to exist in `vault_files`
-and to have an `image/*` mime, and replaces the `flowchart_script_images` rows with a fresh `sort_order`.
+and to have an `image/*` mime, and replaces the `script_images` rows with a fresh `sort_order`.
 The first image is the cover. The picker is the global Vault picker
 (`useVaultPicker` -> `Components/Vault/VaultPicker.tsx`); ordering is drag-and-drop with `@dnd-kit`.
 AI Models have no Preview Images.
@@ -361,7 +361,7 @@ so the controllers return full ordered collections. The latest released Revision
 an eager-loaded, column-limited `revisions` relation (then dropped from the payload) rather than a query
 per row.
 
-The sidebar gains **FlowChart Scripts** (`scripts.view`) and **AI Models** (`ai_models.view`).
+The sidebar gains **Scripts** (`scripts.view`) and **AI Models** (`ai_models.view`).
 
 `ActivityLogger::log` records create / update / delete / restore / upload / release / deprecate /
 hard_delete.
@@ -374,17 +374,17 @@ hard_delete.
 
 Auth is a Sanctum personal access token (`auth:sanctum`; the guard is also spelled out in
 `config/auth.php`). **The token's name is the motherboard UUID it was issued for** — that is how
-every later request finds its AI Box, and why download attribution can never come from request input
+every later request finds its UNYSIS Box, and why download attribution can never come from request input
 (docs/adr/0002).
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/login` | email, password, motherboard_uuid, box_name? -> token + user + customer + ai_box |
+| POST | `/login` | email, password, motherboard_uuid, box_name? -> token + user + customer + unysis_box |
 | POST | `/logout` | deletes the current token, 204 |
 | GET | `/me` | identity payload + `token_expires_at` |
 | GET | `/machine-brands` | id, name, slug |
 | GET | `/machine-models?brand=` | active only, with brand |
-| GET | `/customers` | id + company, **all** active Customers (docs/adr/0001) |
+| GET | `/customers` | id + code + company, **all** active Customers (docs/adr/0001) |
 | GET | `/scripts?machine_model=&brand=&customer=&q=&per_page=&page=` | paginated; only entries with a released Revision |
 | GET | `/scripts/{id}` | detail + images + released/deprecated Revisions |
 | GET | `/scripts/{id}/revisions` | the same Revision array |
@@ -399,19 +399,19 @@ refuses everyone else. A caller must pass `LoginRequest::isRpaToolOnly()`, have 
 belong to an **active** Customer, and be `is_active` itself. A wrong password and an unknown email
 both return the same 422 `These credentials do not match our records.`
 
-### ResolveAiBox middleware
+### ResolveUnysisBox middleware
 
-Alias `ai-box`, applied after `auth:sanctum` on every authenticated API route. It re-runs the whole
+Alias `unysis-box`, applied after `auth:sanctum` on every authenticated API route. It re-runs the whole
 gate on **every** request — account active, still a Customer User, Customer active, box exists,
-belongs to this Customer, not blocked — then puts the box on the request as the `ai_box` attribute
-and calls `AiBoxService::touch()`. That re-check is the point: blocking a box or deactivating a
+belongs to this Customer, not blocked — then puts the box on the request as the `unysis_box` attribute
+and calls `UnysisBoxService::touch()`. That re-check is the point: blocking a box or deactivating a
 Customer User cuts access off at once rather than when the 30-day token expires. See
 [architecture/middleware](../architecture/middleware.md).
 
 ### Throttling
 
 Plain `throttle:60,1` buckets authenticated callers by **user id**, but one Customer User may run
-several AI Boxes. Three named limiters are registered in `AppServiceProvider` and keyed on the
+several UNYSIS Boxes. Three named limiters are registered in `AppServiceProvider` and keyed on the
 **token id** instead (falling back to the IP): `rpa` (60/min), `rpa-download` (20/min) and
 `rpa-login` (5/min, by IP since there is no token yet).
 
@@ -428,47 +428,47 @@ several AI Boxes. Three named limiters are registered in `AppServiceProvider` an
 
 `app/Http/Resources/Api/V1/`: `MachineBrandResource`, `MachineModelResource`, `CustomerResource`,
 `RevisionResource` (full) and `RevisionSummaryResource` (the `latest_revision` / `latest` short
-form), plus `FlowchartScript{,Detail}Resource` and `AiModel{,Detail}Resource`. The fields the two
+form), plus `Script{,Detail}Resource` and `AiModel{,Detail}Resource`. The fields the two
 entry types share live in `Concerns\PresentsCatalogueEntry`, which reads `latest_revision` out of
 the eager-loaded, status-narrowed `revisions` relation rather than querying per row.
 
 `CatalogueController` (abstract) holds index / show / revisions / download / check-update for both
-entry types; `FlowchartScriptController` and `AiModelController` are thin, and exist mainly so the
+entry types; `ScriptController` and `AiModelController` are thin, and exist mainly so the
 route parameter `{entry}` has a concrete type hint for implicit binding.
 
-## AI Boxes and Downloads admin (Phase 5)
+## UNYSIS Boxes and Downloads admin (Phase 5)
 
 | Route name | Method / path | Permission |
 |---|---|---|
-| `admin.marketplace.ai-boxes.index` | `GET ai-boxes` | `ai_boxes.view` |
-| `admin.marketplace.ai-boxes.show` | `GET ai-boxes/{ai_box}` | `ai_boxes.view` |
-| `admin.marketplace.ai-boxes.edit` / `.update` | `GET` / `PUT ai-boxes/{ai_box}` | `ai_boxes.edit` |
-| `admin.marketplace.ai-boxes.activate` | `POST ai-boxes/{ai_box}/activate` | `ai_boxes.edit` |
-| `admin.marketplace.ai-boxes.block` | `POST ai-boxes/{ai_box}/block` | `ai_boxes.block` |
-| `admin.marketplace.ai-boxes.unblock` | `POST ai-boxes/{ai_box}/unblock` | `ai_boxes.block` |
-| `admin.marketplace.ai-boxes.destroy` | `DELETE ai-boxes/{ai_box}` | `ai_boxes.edit` |
+| `admin.marketplace.unysis-boxes.index` | `GET unysis-boxes` | `unysis_boxes.view` |
+| `admin.marketplace.unysis-boxes.show` | `GET unysis-boxes/{unysis_box}` | `unysis_boxes.view` |
+| `admin.marketplace.unysis-boxes.edit` / `.update` | `GET` / `PUT unysis-boxes/{unysis_box}` | `unysis_boxes.edit` |
+| `admin.marketplace.unysis-boxes.activate` | `POST unysis-boxes/{unysis_box}/activate` | `unysis_boxes.edit` |
+| `admin.marketplace.unysis-boxes.block` | `POST unysis-boxes/{unysis_box}/block` | `unysis_boxes.block` |
+| `admin.marketplace.unysis-boxes.unblock` | `POST unysis-boxes/{unysis_box}/unblock` | `unysis_boxes.block` |
+| `admin.marketplace.unysis-boxes.destroy` | `DELETE unysis-boxes/{unysis_box}` | `unysis_boxes.edit` |
 | `admin.marketplace.downloads.index` | `GET downloads` | `downloads.view` (route middleware `can:`) |
 
-`AiBoxPolicy` maps `viewAny`/`view` onto `ai_boxes.view`, `update`/`delete` onto `ai_boxes.edit` and
-`block` onto `ai_boxes.block`; it is registered in `AppServiceProvider::boot()`. There is deliberately
+`UnysisBoxPolicy` maps `viewAny`/`view` onto `unysis_boxes.view`, `update`/`delete` onto `unysis_boxes.edit` and
+`block` onto `unysis_boxes.block`; it is registered in `AppServiceProvider::boot()`. There is deliberately
 **no `create`** — RPA-TOOL registers a box by itself on first login (docs/adr/0002). The Download log
 has no model of its own to authorise against, so its route carries `can:downloads.view` and the
 controller re-checks `hasPermission('downloads.view')`.
 
 ### What a Team Member can change
 
-`UpdateAiBoxRequest` accepts only `name`, `location` and `machine_model_id`. The motherboard UUID is
+`UpdateUnysisBoxRequest` accepts only `name`, `location` and `machine_model_id`. The motherboard UUID is
 what the box reports and what its token is named after, and **`status` never moves through `update`** —
 it changes only through the three explicit actions:
 
-- **activate** (`ai_boxes.edit`) — `pending` -> `active`. This is "I know this box", not a security
+- **activate** (`unysis_boxes.edit`) — `pending` -> `active`. This is "I know this box", not a security
   action; it refuses a blocked box and tells the Team Member to unblock instead.
-- **block** (`ai_boxes.block`) — sets `blocked` **and deletes every Sanctum token named after the box's
-  motherboard UUID**. `ResolveAiBox` would already refuse the box on its next request, but deleting the
+- **block** (`unysis_boxes.block`) — sets `blocked` **and deletes every Sanctum token named after the box's
+  motherboard UUID**. `ResolveUnysisBox` would already refuse the box on its next request, but deleting the
   tokens revokes access in the same instant and without depending on the middleware; the token name *is*
   the UUID (docs/adr/0002), so "every token for this box" is an exact lookup. The flash says how many
   sessions were revoked.
-- **unblock** (`ai_boxes.block`) — back to `active`. The box must sign in again, since its tokens are gone.
+- **unblock** (`unysis_boxes.block`) — back to `active`. The box must sign in again, since its tokens are gone.
 
 `destroy` refuses a box that has any recorded Downloads — Download rows are the record of what a box
 installed and are never deleted — and suggests blocking instead. A box with none is deleted along with
@@ -476,7 +476,7 @@ any tokens named after it.
 
 ### The Installed tab — how "installed" is derived
 
-Nothing is stored. `App\Services\Marketplace\AiBoxInstalledService::forBox()` treats **the latest
+Nothing is stored. `App\Services\Marketplace\UnysisBoxInstalledService::forBox()` treats **the latest
 Download of a catalogue entry by that box** as what the box is running, and returns one row per entry
 it has ever fetched, whatever that Revision's status is now: a box that only ever pulled a Revision
 since deprecated is still running it. Each row carries the entry, its Machine Model, the installed
@@ -488,7 +488,7 @@ look outdated.
 (`revisable_type`, `revisable_id`)", which needs a window function or a self-join on a grouped max —
 and `max(id)` is *not* the latest row, because the primary keys are ULIDs and only sort lexically when
 generated in order. Rather than carry two dialect-specific queries for SQLite (tests) and PostgreSQL
-(production), the service reads the box's own Download log — bounded by one AI Box, so tens to a few
+(production), the service reads the box's own Download log — bounded by one UNYSIS Box, so tens to a few
 hundred rows — ordered newest first and keeps the first row it sees per entry. The whole derivation is
 **five queries** regardless of how many entries are installed: the Download log, the two entry tables
 (`withTrashed()`, so a removed entry still shows), and the released Revisions of each entry type.
@@ -497,46 +497,46 @@ hundred rows — ordered newest first and keeps the first row it sees per entry.
 
 `DownloadController@index` is server-paginated at **50 a page** (the indexes elsewhere hand the whole
 collection to the browser's `DataTable`; the Download log is append-only and unbounded, so it cannot).
-Filters: `source`, `customer_id`, `ai_box_id`, `entry_type`, `user_id`, `q` (entry name) and `from` / `to`.
+Filters: `source`, `customer_id`, `unysis_box_id`, `entry_type`, `user_id`, `q` (entry name) and `from` / `to`.
 
 Two of them are less obvious than they look:
 
-- **Customer** — a Download carries no `customer_id`. It belongs to a Customer through the AI Box it
+- **Customer** — a Download carries no `customer_id`. It belongs to a Customer through the UNYSIS Box it
   came from, *or*, for a web fetch with no box, through the Customer User who made it, so the filter is
   an `OR` of two `whereIn` subqueries.
 - **Entry name** — a join is impossible across two tables behind one morph column, so the matching entry
   ids are resolved per entry type first (`withTrashed()`) and the polymorphic columns filtered on those.
 
-The summary strip above the table (total, last 7 days, unique AI Boxes, top 5 entries) is computed over
-the **filtered** set with four grouped queries, whatever the row count. `count(distinct ai_box_id)` and
+The summary strip above the table (total, last 7 days, unique UNYSIS Boxes, top 5 entries) is computed over
+the **filtered** set with four grouped queries, whatever the row count. `count(distinct unysis_box_id)` and
 a two-column `group by` both run unchanged on SQLite and PostgreSQL, so `App\Support\DateBucket` was
 not needed here.
 
-`App\Support\DownloadPresenter` shapes the rows for both this page and the AI Box Downloads tab. It
+`App\Support\DownloadPresenter` shapes the rows for both this page and the UNYSIS Box Downloads tab. It
 resolves entry names with one `withTrashed()` query per entry type per page, because a `morphTo` eager
 load would not reach a soft-deleted entry — and hard-deleting an entry deliberately keeps its Download
 rows, so a row whose entry is gone entirely still renders, unlinked.
 
 ### Inertia pages and components
 
-- `resources/js/Pages/Marketplace/AiBoxes/{Index,Show,Edit}.tsx` — the index is the shared `DataTable`
+- `resources/js/Pages/Marketplace/UnysisBoxes/{Index,Show,Edit}.tsx` — the index is the shared `DataTable`
   with faceted filters on Customer, status and Machine Model, and one hidden `search` column joining the
   motherboard UUID, name and location so one box matches on any of the three. `Show` has tabs
   **Installed**, **Downloads** (server-paginated) and **Details**.
 - `resources/js/Pages/Marketplace/Downloads/Index.tsx` — the summary strip, the filter bar (filters go
   through the URL, so a filtered log is linkable) and the log.
-- `resources/js/Components/Marketplace/` gains `AiBoxStatusBadge.tsx`, `InstalledRevisionsTable.tsx`,
-  `DownloadLogTable.tsx` (the full log, with optional entry and AI Box columns — the older
+- `resources/js/Components/Marketplace/` gains `UnysisBoxStatusBadge.tsx`, `InstalledRevisionsTable.tsx`,
+  `DownloadLogTable.tsx` (the full log, with optional entry and UNYSIS Box columns — the older
   `DownloadsTable.tsx` stays as the narrow per-entry web-fetch list on the catalogue Show pages) and
   `Pagination.tsx`. `format.ts` gains `formatRelative()` for last-seen columns.
-- The Customer detail page gains an **AI Boxes** tab (uuid, name, status, last seen), linking to each
-  box when the viewer has `ai_boxes.view`.
-- The Scripts and AI Models Show pages gain a **unique AI Boxes** count beside the Download total, in
-  the header and per Revision row. The per-Revision figure is a correlated `count(distinct ai_box_id)`
+- The Customer detail page gains an **UNYSIS Boxes** tab (uuid, name, status, last seen), linking to each
+  box when the viewer has `unysis_boxes.view`.
+- The Scripts and AI Models Show pages gain a **unique UNYSIS Boxes** count beside the Download total, in
+  the header and per Revision row. The per-Revision figure is a correlated `count(distinct unysis_box_id)`
   sub-select added to the existing Revisions query, so it is still one query.
-- The sidebar gains **AI Boxes** (`ai_boxes.view`) and **Downloads** (`downloads.view`).
+- The sidebar gains **UNYSIS Boxes** (`unysis_boxes.view`) and **Downloads** (`downloads.view`).
 
-`ActivityLogger::log` records `update`, `activate`, `block`, `unblock` and `delete` on AI Boxes.
+`ActivityLogger::log` records `update`, `activate`, `block`, `unblock` and `delete` on UNYSIS Boxes.
 
 **Not done:** no Marketplace cards were added to the Dashboard. `resources/js/Pages/Dashboard.tsx` has
 no data-driven stats grid to extend — its cards come from the hardcoded `Components/section-cards.tsx`
@@ -554,7 +554,7 @@ Phase 6 CMS strip rather than inside this one.
 - `MachineBrandControllerTest`, `MachineModelControllerTest` — 403 without the permission, CRUD, slug
   generation, unique validation (including "unique per Machine Brand"), refusal to delete with dependents.
 - `CustomerControllerTest` — 403 without the permission, CRUD, `show`, refusal to delete with Customer
-  Users or AI Boxes.
+  Users or UNYSIS Boxes.
 - `CustomerUserControllerTest` — only the `customer` role is assigned and `customer_id` is set, the
   invite path sends `ResetPassword` (`Notification::fake()`), deactivate and revoke delete tokens, a
   user belonging to another Customer 404s.
@@ -565,11 +565,11 @@ Phase 6 CMS strip rather than inside this one.
   extension, bad magic bytes and oversize are refused; the SHA-256 matches the bytes; every lifecycle
   transition allowed and refused; `ClamAvScanner` mocked to assert it is called only when
   `vault.clamav_enabled` is set and that a hit refuses the upload.
-- `FlowchartScriptControllerTest`, `AiModelControllerTest` — 403 without each permission, CRUD, unique
+- `ScriptControllerTest`, `AiModelControllerTest` — 403 without each permission, CRUD, unique
   name per Machine Model, soft delete / restore / force delete (files removed), upload, release,
   deprecate, download (records a `web` Download and returns `X-Checksum-SHA256`), cross-entry Revision
   404, hard delete keeping Download rows.
-- `FlowchartScriptImagesTest` — sync order, reorder, clear, non-image and unknown Vault file refused,
+- `ScriptImagesTest` — sync order, reorder, clear, non-image and unknown Vault file refused,
   403 without `scripts.edit`.
 
 Factories exist for all nine models.
@@ -582,34 +582,34 @@ Factories exist for all nine models.
   existing box without clobbering its label, and the 5/min login throttle.
 - `LogoutMeTest` — JSON 401 (with and without an `Accept` header), `me`, logout deleting only the
   current token, expired token refused.
-- `ResolveAiBoxMiddlewareTest` — blocking, deleting or reassigning the box, and deactivating the
+- `ResolveUnysisBoxMiddlewareTest` — blocking, deleting or reassigning the box, and deactivating the
   user or the Customer, all refuse the *next* request on a live token; the touch throttle.
 - `CatalogueReadTest` — lookups, entries without a released Revision hidden, drafts absent from
   detail, filters, the `q` search, per-page cap, soft-deleted 404, AI Model metadata.
 - `DownloadTest` — default latest released, explicit deprecated, draft/unknown 404, the Download row
   (`api` + user + box), headers, cross-entry Revision, the 20/min throttle.
 - `CheckUpdateTest` — every `current_status` branch.
-- `tests/Unit/AiBoxServiceTest` — the service in isolation.
+- `tests/Unit/UnysisBoxServiceTest` — the service in isolation.
 
 `tests/Feature/Marketplace/` (Phase 5):
 
-- `AiBoxControllerTest` — 403 on every route without the matching permission, the index payload and its
+- `UnysisBoxControllerTest` — 403 on every route without the matching permission, the index payload and its
   filter option sets, the label update, `status` and `motherboard_uuid` ignored by `update`, an unknown
-  Machine Model refused, activate (including refusing a blocked box, and needing `ai_boxes.edit` rather
-  than `ai_boxes.block`), unblock, destroy refused with Downloads and allowed without. Blocking is
+  Machine Model refused, activate (including refusing a blocked box, and needing `unysis_boxes.edit` rather
+  than `unysis_boxes.block`), unblock, destroy refused with Downloads and allowed without. Blocking is
   tested end to end: a token obtained from the real `POST /api/v1/login` works against `/api/v1/me`,
   the block deletes it, and the same token then 401s — while a second box's token is left alone.
-- `AiBoxInstalledTest` — the latest Download per entry wins even when the rows are inserted newest
+- `UnysisBoxInstalledTest` — the latest Download per entry wins even when the rows are inserted newest
   first, the outdated flag, a draft Revision not making an install outdated, an entry whose only
   Download was of a since-deprecated Revision still listed, both entry types side by side, another
   box's Downloads ignored, and a soft-deleted entry still reported.
 - `DownloadControllerTest` — 403 without `downloads.view`, newest-first ordering, 50-a-page pagination,
-  every filter (source, entry type, AI Box, Customer through both the box and the user, user, entry
+  every filter (source, entry type, UNYSIS Box, Customer through both the box and the user, user, entry
   name across both entry types, date range), the summary figures, and a Download whose entry was hard
   deleted still appearing.
 
 Tokens in these tests come from the real `POST /api/v1/login` rather than `Sanctum::actingAs`,
-because `ResolveAiBox` resolves the box from the token **name** and an acting-as transient token
+because `ResolveUnysisBox` resolves the box from the token **name** and an acting-as transient token
 carries none. `ApiTestCase::asToken()` calls `forgetGuards()` first: the auth guard caches the
 resolved user for the life of the container, which survives between requests inside one test.
 

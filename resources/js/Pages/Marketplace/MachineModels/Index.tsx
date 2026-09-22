@@ -57,7 +57,7 @@ export default function Index({ machineModels, machineBrands }: MachineModelsInd
                 header: 'Catalogue Entries',
                 cell: ({ row }) => (
                     <span className="text-sm text-muted-foreground">
-                        {row.original.flowchart_scripts_count ?? 0} Scripts · {row.original.ai_models_count ?? 0} AI
+                        {row.original.scripts_count ?? 0} Scripts · {row.original.ai_models_count ?? 0} AI
                         Models
                     </span>
                 ),
@@ -139,7 +139,7 @@ export default function Index({ machineModels, machineBrands }: MachineModelsInd
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">Machine Models</h1>
                         <p className="text-muted-foreground">
-                            The equipment FlowChart Scripts and AI Models target.
+                            The equipment Scripts and AI Models target.
                         </p>
                     </div>
                     {canCreate && (

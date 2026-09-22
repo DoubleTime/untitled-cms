@@ -6,7 +6,7 @@ use Illuminate\Foundation\Http\FormRequest;
 
 /**
  * POST /api/v1/login — RPA-TOOL signs in with a Customer User's credentials and
- * the motherboard UUID of the AI Box it is running on (docs/adr/0002).
+ * the motherboard UUID of the UNYSIS Box it is running on (docs/adr/0002).
  */
 class LoginRequest extends FormRequest
 {

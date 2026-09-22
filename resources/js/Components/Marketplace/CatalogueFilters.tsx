@@ -12,7 +12,7 @@ interface FilterOption {
 }
 
 /**
- * Faceted filters shared by the FlowChart Scripts and AI Models indexes.
+ * Faceted filters shared by the Scripts and AI Models indexes.
  *
  * The Machine Model options are grouped by Machine Brand — the faceted filter is
  * a flat list, so the grouping is expressed by sorting on Brand and prefixing the

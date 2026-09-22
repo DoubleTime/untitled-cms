@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 /**
  * Shared Revision/Download behaviour for the two catalogue entry types
- * (FlowChart Script and AI Model). Revisions are polymorphic so both share one
+ * (Script and AI Model). Revisions are polymorphic so both share one
  * implementation while staying separate entities in the UI and the API.
  */
 trait HasRevisions

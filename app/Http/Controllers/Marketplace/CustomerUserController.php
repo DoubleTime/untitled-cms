@@ -72,7 +72,7 @@ class CustomerUserController extends Controller
     }
 
     /**
-     * Toggle is_active. Deactivating also revokes every API token so an AI Box
+     * Toggle is_active. Deactivating also revokes every API token so an UNYSIS Box
      * already holding one cannot keep pulling Revisions.
      */
     public function toggleActive(Request $request, Customer $customer, User $user)
@@ -100,7 +100,7 @@ class CustomerUserController extends Controller
     }
 
     /**
-     * Revoke every API token this Customer User holds, signing out all of their AI Boxes.
+     * Revoke every API token this Customer User holds, signing out all of their UNYSIS Boxes.
      */
     public function revokeTokens(Request $request, Customer $customer, User $user)
     {

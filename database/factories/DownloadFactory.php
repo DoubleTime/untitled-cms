@@ -22,7 +22,7 @@ class DownloadFactory extends Factory
             'revisable_type' => 'ai_model',
             'revisable_id' => AiModel::factory(),
             'user_id' => User::factory(),
-            'ai_box_id' => null,
+            'unysis_box_id' => null,
             'source' => Download::SOURCE_API,
             'ip' => fake()->ipv4(),
             'user_agent' => 'RPA-TOOL/1.0',

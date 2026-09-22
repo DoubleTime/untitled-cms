@@ -10,13 +10,13 @@ Append-only record of wiki operations. Format: `## [YYYY-MM-DD] <op> | <title>`
   the new permission groups, the private `marketplace` disk, the access model from the three
   ADRs, and the five phases still outstanding.
 - Schema: `database/migrations/2026_09_22_000001_create_marketplace_tables.php` creates
-  `customers`, `machine_brands`, `machine_models`, `flowchart_scripts`,
-  `flowchart_script_images`, `ai_models`, `revisions`, `ai_boxes`, `downloads`, and adds a
+  `customers`, `machine_brands`, `machine_models`, `scripts`,
+  `script_images`, `ai_models`, `revisions`, `unysis_boxes`, `downloads`, and adds a
   nullable indexed `users.customer_id`. Repo conventions held: ULID keys, indexed reference
   columns, no FK constraints, soft deletes on the two catalogue entry tables. Status columns
   are plain strings with a default so the DDL runs unchanged on SQLite and PostgreSQL.
 - Models: nine plain Eloquent models plus `App\Models\Concerns\HasRevisions`
-  (`revisions()`, `latestReleasedRevision()`, `downloads()`), shared by `FlowchartScript`
+  (`revisions()`, `latestReleasedRevision()`, `downloads()`), shared by `Script`
   and `AiModel`. `User` gained `customer()` and `isCustomerUser()`.
 - Permissions: 26 new strings appended to `Role::availablePermissions()` in five groups.
   `RoleSeeder` syncs admin from that list, so admin picked them up with no enumeration; it
@@ -325,7 +325,7 @@ Web login is now closed to them: `LoginRequest::isRpaToolOnly()` drives a reject
 Shipped the Phase 3 catalogue admin from `docs/marketplace-plan.md`. Added
 `App\Services\Marketplace\{RevisionService,DownloadService}`,
 `App\Exceptions\Marketplace\InvalidRevisionTransition`,
-`Marketplace\{FlowchartScript,AiModel}Controller`, `FlowchartScriptPolicy`, `AiModelPolicy`
+`Marketplace\{Script,AiModel}Controller`, `ScriptPolicy`, `AiModelPolicy`
 (registered in `AppServiceProvider`), six form requests, and the `admin.marketplace.scripts.*` /
 `admin.marketplace.ai-models.*` routes, with `throttle:30,1` on the Revision upload routes.
 
@@ -348,8 +348,8 @@ Sidebar entries gated on `scripts.view` / `ai_models.view`; new types in `resour
 `bootstrap/app.php` now turns `PostTooLargeException` into a flash `error` — the app cap is enforced by
 `StoreRevisionRequest`, but `upload_max_filesize` and `post_max_size` must still be raised on the VPS.
 
-Tests: `RevisionServiceTest`, `FlowchartScriptControllerTest`, `AiModelControllerTest`,
-`FlowchartScriptImagesTest` (61 new cases). Full suite 251/251, 614 assertions.
+Tests: `RevisionServiceTest`, `ScriptControllerTest`, `AiModelControllerTest`,
+`ScriptImagesTest` (61 new cases). Full suite 251/251, 614 assertions.
 Details in [modules/marketplace](modules/marketplace.md) and [modules/services](modules/services.md).
 
 ## [2026-09-22] update | Marketplace Phase 4: RPA-TOOL API
@@ -358,20 +358,20 @@ Shipped the Phase 4 RPA-TOOL API from `docs/marketplace-plan.md`. Added `routes/
 in `bootstrap/app.php` with `withRouting(api: ..., apiPrefix: 'api')`), everything under
 `/api/v1` with route names `api.v1.*`.
 
-`App\Services\Marketplace\AiBoxService` auto-registers an AI Box from the motherboard UUID a login
+`App\Services\Marketplace\UnysisBoxService` auto-registers an UNYSIS Box from the motherboard UUID a login
 reports, under the Customer User's Customer, as `pending` with `first_user_id`; it refuses a box
-that belongs to another Customer (`AiBoxBelongsToAnotherCustomer`) or has been blocked
-(`AiBoxBlocked`), both 403, and throttles the `last_seen_at` write to once a minute.
+that belongs to another Customer (`UnysisBoxBelongsToAnotherCustomer`) or has been blocked
+(`UnysisBoxBlocked`), both 403, and throttles the `last_seen_at` write to once a minute.
 
-`App\Http\Middleware\ResolveAiBox` (alias `ai-box`) runs after `auth:sanctum` on every
+`App\Http\Middleware\ResolveUnysisBox` (alias `unysis-box`) runs after `auth:sanctum` on every
 authenticated route: it resolves the box from the **token name** (the UUID the token was issued for),
 re-checks the box, the Customer User and the Customer, and puts the box on the request as the
-`ai_box` attribute. That re-check is what makes blocking a box take effect immediately rather than
+`unysis_box` attribute. That re-check is what makes blocking a box take effect immediately rather than
 when its 30-day token expires.
 
 Endpoints: `login` / `logout` / `me`, the `machine-brands` / `machine-models` / `customers` lookups,
 and the five catalogue endpoints (`index`, `show`, `revisions`, `download`, `check-update`) for both
-FlowChart Scripts and AI Models, served by an abstract `CatalogueController` with two thin
+Scripts and AI Models, served by an abstract `CatalogueController` with two thin
 subclasses and Eloquent API Resources in `app/Http/Resources/Api/V1/`. Draft Revisions and entries
 with no released Revision are never exposed; downloads record a `Download` with source `api` and the
 box from the request attribute, then stream with `X-Checksum-SHA256`.
@@ -383,41 +383,41 @@ Customer User may run several boxes. `config/auth.php` gained an explicit `sanct
 Wrote `docs/api/rpa-tool-v1.md`, the endpoint reference for the RPA-TOOL developers (auth flow,
 every request/response, error codes, throttles, checksum verification, the check-update loop).
 
-Tests: `tests/Feature/Api/V1/{LoginTest,LogoutMeTest,ResolveAiBoxMiddlewareTest,CatalogueReadTest,DownloadTest,CheckUpdateTest}`
-plus `tests/Unit/AiBoxServiceTest` (69 new cases). Full suite 320/320, 947 assertions.
+Tests: `tests/Feature/Api/V1/{LoginTest,LogoutMeTest,ResolveUnysisBoxMiddlewareTest,CatalogueReadTest,DownloadTest,CheckUpdateTest}`
+plus `tests/Unit/UnysisBoxServiceTest` (69 new cases). Full suite 320/320, 947 assertions.
 Details in [modules/marketplace](modules/marketplace.md) and
 [architecture/middleware](architecture/middleware.md).
 
-## [2026-09-22] update | Marketplace Phase 5 — AI Boxes & Downloads admin
+## [2026-09-22] update | Marketplace Phase 5 — UNYSIS Boxes & Downloads admin
 
-Added the AI Boxes admin and the Download log, closing the last build phase before the deferred
-CMS strip. `AiBoxController` (index / show / edit / update / activate / block / unblock / destroy)
-under `AiBoxPolicy` (`ai_boxes.view` / `.edit` / `.block`, registered in `AppServiceProvider`), and
+Added the UNYSIS Boxes admin and the Download log, closing the last build phase before the deferred
+CMS strip. `UnysisBoxController` (index / show / edit / update / activate / block / unblock / destroy)
+under `UnysisBoxPolicy` (`unysis_boxes.view` / `.edit` / `.block`, registered in `AppServiceProvider`), and
 `DownloadController@index` behind `can:downloads.view`. Routes sit under the existing `marketplace`
-prefix; the sidebar gains AI Boxes and Downloads, each gated on its `.view` permission.
+prefix; the sidebar gains UNYSIS Boxes and Downloads, each gated on its `.view` permission.
 
 Boxes are never created from the admin — RPA-TOOL registers them (docs/adr/0002) — and `update`
 accepts only `name`, `location` and `machine_model_id`. Status moves only through the three explicit
 actions. **Blocking deletes every Sanctum token named after the box's motherboard UUID**, so access
-is cut in the same instant rather than on the next `ResolveAiBox` check; `destroy` refuses a box with
+is cut in the same instant rather than on the next `ResolveUnysisBox` check; `destroy` refuses a box with
 recorded Downloads, since Download rows are never deleted.
 
-`AiBoxInstalledService` derives the Installed tab — the latest Download per catalogue entry per box.
+`UnysisBoxInstalledService` derives the Installed tab — the latest Download per catalogue entry per box.
 It reduces the box's own (bounded) Download log in PHP rather than carrying a window function for
 PostgreSQL and a self-join for SQLite, and because `max(id)` is not the latest row when the keys are
 ULIDs. Five queries regardless of entry count; the writeup is in
 [modules/marketplace](modules/marketplace.md).
 
-The Download log is server-paginated at 50 a page with filters on source, Customer, AI Box, entry
+The Download log is server-paginated at 50 a page with filters on source, Customer, UNYSIS Box, entry
 type, entry name, user and date range, plus a summary strip (total, last 7 days, unique boxes, top 5
 entries) computed over the filtered set in four grouped queries. Customer and entry-name filtering
-both needed care: a Download carries no `customer_id` (it reaches one through its AI Box or its
+both needed care: a Download carries no `customer_id` (it reaches one through its UNYSIS Box or its
 Customer User), and no join is possible across two tables behind one morph column.
 `App\Support\DownloadPresenter` resolves entry names `withTrashed()` per page so a row whose entry was
 hard deleted still renders.
 
-Also: a unique-AI-Box count beside the Download total on the Scripts and AI Models Show pages (header
-and per Revision row, via a correlated `count(distinct ai_box_id)` sub-select), an AI Boxes tab on the
+Also: a unique-UNYSIS-Box count beside the Download total on the Scripts and AI Models Show pages (header
+and per Revision row, via a correlated `count(distinct unysis_box_id)` sub-select), an UNYSIS Boxes tab on the
 Customer detail page, and `DownloadFactory` corrected to store the morph alias rather than the class
 name. No migration was needed — every figure on these pages is derived.
 
@@ -425,6 +425,44 @@ Not done: no Marketplace cards on the Dashboard. That page has no data-driven st
 (its cards come from a hardcoded `section-cards.tsx` with placeholder figures), so wiring real counts
 belongs with the Phase 6 CMS strip.
 
-Tests: `tests/Feature/Marketplace/{AiBoxControllerTest,AiBoxInstalledTest,DownloadControllerTest}`
-(39 new cases), plus one case in `FlowchartScriptControllerTest` covering the new count columns.
+Tests: `tests/Feature/Marketplace/{UnysisBoxControllerTest,UnysisBoxInstalledTest,DownloadControllerTest}`
+(39 new cases), plus one case in `ScriptControllerTest` covering the new count columns.
 Full suite 360/360, 1217 assertions; Pint clean; `npm run build` exits 0.
+
+## [2026-09-22] update | Domain rename: UNYSIS Box, Script, Customer code
+
+Three vocabulary corrections, applied to the existing Phase 1–5 migration file in place rather than
+through alter/rename migrations (the marketplace tables had been rolled back on the dev database, so
+the schema is recreated from scratch).
+
+**Customer `name` → `code`.** `customers.code` is now a short, unique, uppercase key (e.g.
+`INARI-123`); `company` remains the display label everywhere the UI shows a Customer. The plain
+`index('name')` became `unique()`. Both Customer form requests normalise the input with
+`prepareForValidation()` (`trim` + `strtoupper`) and validate `alpha_dash|max:32` plus a `unique`
+rule that ignores the record on update, so a Customer can be saved without changing its own code.
+`CustomerResource` and `AuthController::identityPayload` now expose `{id, code, company}`.
+
+**AI Box → UNYSIS Box.** Table `ai_boxes` → `unysis_boxes`, column `downloads.ai_box_id` →
+`unysis_box_id`, model/service/exception/policy/middleware/controller/request/page/component names,
+the `ai-box` middleware alias (`unysis-box`), the request attribute (`unysis_box`), the admin routes
+(`/admin/marketplace/unysis-boxes`, `admin.marketplace.unysis-boxes.*`, `{unysis_box}`), the
+`ai_boxes.view|edit|block` permissions (`unysis_boxes.*`) and the API response key `ai_box` →
+`unysis_box` in `login` and `me`. `motherboard_uuid` and `box_name` are unchanged request fields.
+`AiModel` / `ai_models` are a different concept and were deliberately left alone.
+
+**FlowChart Script → Script.** Tables `flowchart_scripts` → `scripts` and `flowchart_script_images`
+→ `script_images`, column `flowchart_script_id` → `script_id`, the morph alias `flowchart_script` →
+`script` (which also moves the Revision storage path prefix, harmless on a fresh disk), the
+`allowed_extensions` config key, the model/policy/controller/request/resource/factory/test names,
+and the `entry_type` values in the API and the Download log. The `scripts.*` permissions and the
+`/admin/marketplace/scripts` and `/api/v1/scripts` routes already used the short name and did not
+move.
+
+`CONTEXT.md` now defines **Script** (avoid: FlowChart Script) and **UNYSIS Box** (avoid: AI Box).
+`docs/adr/0002-*` was renamed to `0002-unysis-boxes-identify-by-motherboard-uuid-under-user-login.md`.
+
+Verification: `migrate:fresh --seed` on the dev PostgreSQL succeeds; the admin role seeds with all 58
+permissions from `Role::availablePermissions()`; Pint clean; `npm run build` exits 0; suite green at
+362 tests / 1221 assertions (run per directory — a full single-process run trips the 120s
+`max_execution_time` because every Inertia page render spends ~2s on a refused Inertia SSR connect
+to `127.0.0.1:13714`; this predates the rename).

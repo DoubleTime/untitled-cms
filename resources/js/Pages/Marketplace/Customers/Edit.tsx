@@ -17,7 +17,7 @@ interface CustomerEditProps extends PageProps {
 export default function Edit({ customer }: CustomerEditProps) {
     const { canDelete } = usePage<PageProps>().props;
     const { data, setData, put, processing, errors, isDirty } = useForm({
-        name: customer.name,
+        code: customer.code,
         company: customer.company,
         contact_name: customer.contact_name ?? '',
         contact_email: customer.contact_email ?? '',
@@ -74,7 +74,7 @@ export default function Edit({ customer }: CustomerEditProps) {
                         <CardHeader>
                             <CardTitle>Customer</CardTitle>
                             <CardDescription>
-                                A company that owns UNYSIS AI Boxes, for example Inari.
+                                A company that owns UNYSIS Boxes, for example Inari.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
@@ -93,16 +93,16 @@ export default function Edit({ customer }: CustomerEditProps) {
                             </div>
 
                             <div>
-                                <Label htmlFor="name">Name</Label>
+                                <Label htmlFor="code">Code</Label>
                                 <Input
-                                    id="name"
+                                    id="code"
                                     type="text"
-                                    value={data.name}
-                                    onChange={(e) => setData('name', e.target.value)}
+                                    value={data.code}
+                                    onChange={(e) => setData('code', e.target.value)}
                                     className="mt-1 block w-full"
                                     required
                                 />
-                                {errors.name && <p className="text-sm text-destructive mt-1">{errors.name}</p>}
+                                {errors.code && <p className="text-sm text-destructive mt-1">{errors.code}</p>}
                             </div>
 
                             <div className="grid gap-6 md:grid-cols-2">

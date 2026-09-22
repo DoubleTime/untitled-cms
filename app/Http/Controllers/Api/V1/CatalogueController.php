@@ -3,14 +3,14 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Http\Middleware\ResolveAiBox;
+use App\Http\Middleware\ResolveUnysisBox;
 use App\Http\Resources\Api\V1\RevisionResource;
 use App\Http\Resources\Api\V1\RevisionSummaryResource;
-use App\Models\AiBox;
 use App\Models\AiModel;
 use App\Models\Download;
-use App\Models\FlowchartScript;
 use App\Models\Revision;
+use App\Models\Script;
+use App\Models\UnysisBox;
 use App\Services\Marketplace\DownloadService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -22,7 +22,7 @@ use Illuminate\Support\Collection;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * The read + download half of the RPA-TOOL API, shared by FlowChart Scripts and
+ * The read + download half of the RPA-TOOL API, shared by Scripts and
  * AI Models. The two entry types differ only in their model, their resources and
  * the relations worth eager-loading.
  *
@@ -128,7 +128,7 @@ abstract class CatalogueController extends Controller
         });
     }
 
-    protected function showEntry(FlowchartScript|AiModel $entry): JsonResponse
+    protected function showEntry(Script|AiModel $entry): JsonResponse
     {
         $entry->load($this->detailRelations());
         $this->loadVisibleRevisions($entry);
@@ -138,7 +138,7 @@ abstract class CatalogueController extends Controller
         return response()->json(['data' => (new $resource($entry))->resolve(request())]);
     }
 
-    protected function revisionsFor(FlowchartScript|AiModel $entry): JsonResponse
+    protected function revisionsFor(Script|AiModel $entry): JsonResponse
     {
         return response()->json([
             'data' => RevisionResource::collection($this->visibleRevisions($entry))->resolve(request()),
@@ -152,7 +152,7 @@ abstract class CatalogueController extends Controller
      * may be deprecated (RPA-TOOL is allowed to re-fetch what it already runs) but
      * never a draft.
      */
-    protected function downloadFrom(Request $request, FlowchartScript|AiModel $entry): StreamedResponse
+    protected function downloadFrom(Request $request, Script|AiModel $entry): StreamedResponse
     {
         if ($request->filled('revision')) {
             $number = (int) $request->query('revision');
@@ -169,12 +169,12 @@ abstract class CatalogueController extends Controller
             abort_if($revision === null, 404, self::NO_RELEASED_REVISION);
         }
 
-        $box = $request->attributes->get(ResolveAiBox::ATTRIBUTE);
+        $box = $request->attributes->get(ResolveUnysisBox::ATTRIBUTE);
 
         $this->downloads->record(
             $revision,
             $request->user(),
-            $box instanceof AiBox ? $box : null,
+            $box instanceof UnysisBox ? $box : null,
             Download::SOURCE_API,
             $request,
         );
@@ -185,7 +185,7 @@ abstract class CatalogueController extends Controller
     /**
      * Tell RPA-TOOL whether the Revision it holds is still the newest released one.
      */
-    protected function checkUpdateFor(Request $request, FlowchartScript|AiModel $entry): JsonResponse
+    protected function checkUpdateFor(Request $request, Script|AiModel $entry): JsonResponse
     {
         $request->validate([
             'current' => ['nullable', 'integer', 'min:1'],
@@ -218,14 +218,14 @@ abstract class CatalogueController extends Controller
     }
 
     /** @return Collection<int, Revision> */
-    protected function visibleRevisions(FlowchartScript|AiModel $entry)
+    protected function visibleRevisions(Script|AiModel $entry)
     {
         $this->loadVisibleRevisions($entry);
 
         return $entry->revisions;
     }
 
-    protected function loadVisibleRevisions(FlowchartScript|AiModel $entry): void
+    protected function loadVisibleRevisions(Script|AiModel $entry): void
     {
         $visible = [Revision::STATUS_RELEASED, Revision::STATUS_DEPRECATED];
 

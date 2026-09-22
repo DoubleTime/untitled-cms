@@ -2,15 +2,15 @@
 
 namespace Tests\Feature\Marketplace;
 
-use App\Models\AiBox;
 use App\Models\AiModel;
 use App\Models\Customer;
 use App\Models\Download;
-use App\Models\FlowchartScript;
 use App\Models\MachineBrand;
 use App\Models\MachineModel;
 use App\Models\Revision;
 use App\Models\Role;
+use App\Models\Script;
+use App\Models\UnysisBox;
 use App\Models\User;
 use App\Services\Marketplace\RevisionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -63,17 +63,17 @@ class DownloadControllerTest extends TestCase
         return $user;
     }
 
-    private function script(string $name): FlowchartScript
+    private function script(string $name): Script
     {
-        return FlowchartScript::factory()->create([
+        return Script::factory()->create([
             'machine_model_id' => $this->machineModel->id,
             'name' => $name,
         ]);
     }
 
-    private function revision(FlowchartScript|AiModel $entry): Revision
+    private function revision(Script|AiModel $entry): Revision
     {
-        $file = $entry instanceof FlowchartScript
+        $file = $entry instanceof Script
             ? UploadedFile::fake()->createWithContent('bundle.zip', "PK\x03\x04".str_repeat('a', 64))
             : UploadedFile::fake()->createWithContent('weights.h5', "\x89HDF\r\n\x1a\n".str_repeat('a', 64));
 
@@ -81,7 +81,7 @@ class DownloadControllerTest extends TestCase
     }
 
     private function download(
-        FlowchartScript|AiModel $entry,
+        Script|AiModel $entry,
         array $attributes = [],
     ): Download {
         return Download::factory()->create(array_merge([
@@ -176,20 +176,20 @@ class DownloadControllerTest extends TestCase
             );
     }
 
-    public function test_the_ai_box_filter(): void
+    public function test_the_unysis_box_filter(): void
     {
         $script = $this->script('Boxed');
-        $box = AiBox::factory()->create(['customer_id' => $this->inari->id]);
-        $other = AiBox::factory()->create(['customer_id' => $this->carsem->id]);
+        $box = UnysisBox::factory()->create(['customer_id' => $this->inari->id]);
+        $other = UnysisBox::factory()->create(['customer_id' => $this->carsem->id]);
 
-        $this->download($script, ['ai_box_id' => $box->id]);
-        $this->download($script, ['ai_box_id' => $other->id]);
+        $this->download($script, ['unysis_box_id' => $box->id]);
+        $this->download($script, ['unysis_box_id' => $other->id]);
 
         $this->actingAs($this->admin)
-            ->get("/admin/marketplace/downloads?ai_box_id={$box->id}")
+            ->get("/admin/marketplace/downloads?unysis_box_id={$box->id}")
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->has('downloads.data', 1)
-                ->where('downloads.data.0.ai_box.id', $box->id)
+                ->where('downloads.data.0.unysis_box.id', $box->id)
             );
     }
 
@@ -197,16 +197,16 @@ class DownloadControllerTest extends TestCase
     {
         $script = $this->script('Customer scoped');
 
-        $box = AiBox::factory()->create(['customer_id' => $this->inari->id]);
+        $box = UnysisBox::factory()->create(['customer_id' => $this->inari->id]);
         $inariUser = User::factory()->create(['customer_id' => $this->inari->id]);
-        $carsemBox = AiBox::factory()->create(['customer_id' => $this->carsem->id]);
+        $carsemBox = UnysisBox::factory()->create(['customer_id' => $this->carsem->id]);
 
-        // Reached through the AI Box.
-        $this->download($script, ['ai_box_id' => $box->id, 'user_id' => User::factory()]);
+        // Reached through the UNYSIS Box.
+        $this->download($script, ['unysis_box_id' => $box->id, 'user_id' => User::factory()]);
         // Reached through the Customer User, with no box (a web fetch).
-        $this->download($script, ['ai_box_id' => null, 'user_id' => $inariUser->id, 'source' => Download::SOURCE_WEB]);
+        $this->download($script, ['unysis_box_id' => null, 'user_id' => $inariUser->id, 'source' => Download::SOURCE_WEB]);
         // Neither.
-        $this->download($script, ['ai_box_id' => $carsemBox->id]);
+        $this->download($script, ['unysis_box_id' => $carsemBox->id]);
 
         $this->actingAs($this->admin)
             ->get("/admin/marketplace/downloads?customer_id={$this->inari->id}")
@@ -286,8 +286,8 @@ class DownloadControllerTest extends TestCase
         $popular = $this->script('Popular');
         $quiet = $this->script('Quiet');
 
-        $boxA = AiBox::factory()->create(['customer_id' => $this->inari->id]);
-        $boxB = AiBox::factory()->create(['customer_id' => $this->inari->id]);
+        $boxA = UnysisBox::factory()->create(['customer_id' => $this->inari->id]);
+        $boxB = UnysisBox::factory()->create(['customer_id' => $this->inari->id]);
 
         $revision = $this->revision($popular);
 
@@ -297,13 +297,13 @@ class DownloadControllerTest extends TestCase
                 'revision_id' => $revision->id,
                 'revisable_type' => $popular->getMorphClass(),
                 'revisable_id' => $popular->getKey(),
-                'ai_box_id' => $boxId,
+                'unysis_box_id' => $boxId,
                 'created_at' => now()->subDay(),
             ]);
         }
 
         // One old download of the quiet entry, with no box at all.
-        $this->download($quiet, ['ai_box_id' => null, 'created_at' => now()->subDays(30)]);
+        $this->download($quiet, ['unysis_box_id' => null, 'created_at' => now()->subDays(30)]);
 
         $this->actingAs($this->admin)
             ->get('/admin/marketplace/downloads')

@@ -3,11 +3,11 @@
 namespace Tests\Feature\Api\V1;
 
 use App\Http\Controllers\Api\V1\CatalogueController;
-use App\Models\AiBox;
 use App\Models\AiModel;
 use App\Models\Download;
-use App\Models\FlowchartScript;
 use App\Models\Revision;
+use App\Models\Script;
+use App\Models\UnysisBox;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -36,7 +36,7 @@ class DownloadTest extends ApiTestCase
 
     public function test_the_default_download_is_the_latest_released_revision(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
 
         $this->makeRevision($script, Revision::STATUS_RELEASED, 'One');
         $latest = $this->makeRevision($script, Revision::STATUS_RELEASED, 'Two');
@@ -55,25 +55,25 @@ class DownloadTest extends ApiTestCase
 
     public function test_the_download_is_recorded_with_the_api_source_the_user_and_the_box(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $revision = $this->makeRevision($script);
 
         $this->api()->get('/api/v1/scripts/'.$script->id.'/download')->assertOk();
 
-        $box = AiBox::where('motherboard_uuid', self::UUID)->firstOrFail();
+        $box = UnysisBox::where('motherboard_uuid', self::UUID)->firstOrFail();
         $download = Download::firstOrFail();
 
         $this->assertSame($revision->id, $download->revision_id);
-        $this->assertSame('flowchart_script', $download->revisable_type);
+        $this->assertSame('script', $download->revisable_type);
         $this->assertSame($script->id, $download->revisable_id);
         $this->assertSame($this->user->id, $download->user_id);
-        $this->assertSame($box->id, $download->ai_box_id);
+        $this->assertSame($box->id, $download->unysis_box_id);
         $this->assertSame(Download::SOURCE_API, $download->source);
     }
 
     public function test_a_deprecated_revision_can_be_downloaded_by_explicit_number(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
 
         $deprecated = $this->makeRevision($script, Revision::STATUS_DEPRECATED, 'Old');
         $this->makeRevision($script, Revision::STATUS_RELEASED, 'New');
@@ -86,7 +86,7 @@ class DownloadTest extends ApiTestCase
 
     public function test_a_draft_revision_is_never_downloadable(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
 
         $this->makeRevision($script, Revision::STATUS_RELEASED);
         $draft = $this->makeRevision($script, Revision::STATUS_DRAFT);
@@ -99,7 +99,7 @@ class DownloadTest extends ApiTestCase
 
     public function test_an_unknown_revision_number_is_not_found(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $this->makeRevision($script);
 
         $this->api()->getJson('/api/v1/scripts/'.$script->id.'/download?revision=99')
@@ -108,7 +108,7 @@ class DownloadTest extends ApiTestCase
 
     public function test_an_entry_with_no_released_revision_says_so(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $this->makeRevision($script, Revision::STATUS_DRAFT);
 
         $this->api()->getJson('/api/v1/scripts/'.$script->id.'/download')
@@ -118,8 +118,8 @@ class DownloadTest extends ApiTestCase
 
     public function test_a_revision_belonging_to_another_entry_is_not_reachable(): void
     {
-        $mine = FlowchartScript::factory()->create();
-        $other = FlowchartScript::factory()->create();
+        $mine = Script::factory()->create();
+        $other = Script::factory()->create();
 
         $this->makeRevision($mine);
         $this->makeRevision($other);
@@ -144,7 +144,7 @@ class DownloadTest extends ApiTestCase
 
     public function test_downloads_are_throttled_at_twenty_per_minute(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $this->makeRevision($script);
 
         for ($i = 0; $i < 20; $i++) {
@@ -156,7 +156,7 @@ class DownloadTest extends ApiTestCase
 
     public function test_downloading_without_a_token_is_unauthenticated(): void
     {
-        $script = FlowchartScript::factory()->create();
+        $script = Script::factory()->create();
         $this->makeRevision($script);
 
         $this->getJson('/api/v1/scripts/'.$script->id.'/download')->assertStatus(401);

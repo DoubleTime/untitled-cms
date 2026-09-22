@@ -4,9 +4,9 @@ namespace Tests\Feature\Api\V1;
 
 use App\Models\AiModel;
 use App\Models\Customer;
-use App\Models\FlowchartScript;
 use App\Models\Revision;
 use App\Models\Role;
+use App\Models\Script;
 use App\Models\User;
 use App\Services\Marketplace\RevisionService;
 use Illuminate\Http\UploadedFile;
@@ -18,7 +18,7 @@ use Tests\TestCase;
  * Shared scaffolding for the RPA-TOOL API tests.
  *
  * Tokens are always obtained through the real POST /api/v1/login rather than
- * Sanctum::actingAs, because ResolveAiBox resolves the AI Box from the token's
+ * Sanctum::actingAs, because ResolveUnysisBox resolves the UNYSIS Box from the token's
  * name — a transient acting-as token carries none, so the real flow is the only
  * one that exercises the lookup.
  */
@@ -106,14 +106,14 @@ abstract class ApiTestCase extends TestCase
      * lifecycle. Requires Storage::fake('marketplace') in the calling test.
      */
     protected function makeRevision(
-        FlowchartScript|AiModel $entry,
+        Script|AiModel $entry,
         string $status = Revision::STATUS_RELEASED,
         string $note = 'Change note',
     ): Revision {
         $uploader = User::factory()->create();
         $service = app(RevisionService::class);
 
-        $file = $entry instanceof FlowchartScript ? $this->zipFile() : $this->h5File();
+        $file = $entry instanceof Script ? $this->zipFile() : $this->h5File();
 
         $revision = $service->upload($entry, $file, $note, $uploader);
 

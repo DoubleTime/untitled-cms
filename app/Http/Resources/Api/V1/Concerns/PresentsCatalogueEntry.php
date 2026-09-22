@@ -7,7 +7,7 @@ use App\Models\Revision;
 use Illuminate\Support\Collection;
 
 /**
- * The fields FlowChart Scripts and AI Models present identically to RPA-TOOL.
+ * The fields Scripts and AI Models present identically to RPA-TOOL.
  *
  * `latest_revision` is read from the eager-loaded `revisions` relation rather than
  * queried per row: the catalogue controllers load it already narrowed to the

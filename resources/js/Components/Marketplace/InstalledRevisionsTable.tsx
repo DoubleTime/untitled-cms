@@ -14,7 +14,7 @@ import { entryRoute, entryTypeLabel } from './DownloadLogTable';
 import { formatDateTime } from './format';
 
 /**
- * What an AI Box is running: the latest Download of each catalogue entry by that
+ * What an UNYSIS Box is running: the latest Download of each catalogue entry by that
  * box. Nothing is stored — a box never reports back, so the Download log is the
  * only evidence of what it has.
  */
@@ -22,7 +22,7 @@ export default function InstalledRevisionsTable({ installed }: { installed: Inst
     if (installed.length === 0) {
         return (
             <p className="text-sm text-muted-foreground">
-                This AI Box has not downloaded anything yet, so there is nothing installed to report.
+                This UNYSIS Box has not downloaded anything yet, so there is nothing installed to report.
             </p>
         );
     }

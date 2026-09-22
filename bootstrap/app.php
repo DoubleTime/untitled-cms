@@ -5,7 +5,7 @@ use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\CheckRedirects;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RequireAdminAccess;
-use App\Http\Middleware\ResolveAiBox;
+use App\Http\Middleware\ResolveUnysisBox;
 use App\Http\Middleware\VerifyEmailWebhook;
 use App\Http\Middleware\VerifySessionVersion;
 use Illuminate\Foundation\Application;
@@ -44,7 +44,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'can' => CheckPermission::class,
             'admin' => RequireAdminAccess::class,
             'webhook.email' => VerifyEmailWebhook::class,
-            'ai-box' => ResolveAiBox::class,
+            'unysis-box' => ResolveUnysisBox::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

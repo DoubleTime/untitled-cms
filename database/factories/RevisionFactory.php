@@ -17,7 +17,7 @@ class RevisionFactory extends Factory
     {
         return [
             // Default revisable; override with ->for($script, 'revisable') for a
-            // FlowChart Script, or by passing revisable_type/revisable_id.
+            // Script, or by passing revisable_type/revisable_id.
             'revisable_type' => AiModel::class,
             'revisable_id' => AiModel::factory(),
             'number' => 1,

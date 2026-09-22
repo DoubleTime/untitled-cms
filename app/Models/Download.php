@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * One recorded fetch of a Revision's file, attributed to the Customer User who
- * requested it and the AI Box it was requested from.
+ * requested it and the UNYSIS Box it was requested from.
  *
  * Both attributions are derived from the API token, never from request input
  * (docs/adr/0002). Totals and unique-box counts are derived from this table,
@@ -29,7 +29,7 @@ class Download extends Model
         'revisable_type',
         'revisable_id',
         'user_id',
-        'ai_box_id',
+        'unysis_box_id',
         'source',
         'ip',
         'user_agent',
@@ -50,8 +50,8 @@ class Download extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function aiBox(): BelongsTo
+    public function unysisBox(): BelongsTo
     {
-        return $this->belongsTo(AiBox::class);
+        return $this->belongsTo(UnysisBox::class);
     }
 }

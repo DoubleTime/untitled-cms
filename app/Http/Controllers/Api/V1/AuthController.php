@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Exceptions\Marketplace\AiBoxBelongsToAnotherCustomer;
-use App\Exceptions\Marketplace\AiBoxBlocked;
+use App\Exceptions\Marketplace\UnysisBoxBelongsToAnotherCustomer;
+use App\Exceptions\Marketplace\UnysisBoxBlocked;
 use App\Http\Controllers\Controller;
-use App\Http\Middleware\ResolveAiBox;
+use App\Http\Middleware\ResolveUnysisBox;
 use App\Http\Requests\Api\V1\LoginRequest;
 use App\Http\Requests\Auth\LoginRequest as WebLoginRequest;
-use App\Models\AiBox;
+use App\Models\UnysisBox;
 use App\Models\User;
 use App\Services\ActivityLogger;
-use App\Services\Marketplace\AiBoxService;
+use App\Services\Marketplace\UnysisBoxService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,7 +25,7 @@ use Illuminate\Validation\ValidationException;
  * Only Customer Users may sign in here; Team Members use the web admin and are
  * refused (the mirror image of the web login, which refuses Customer Users — see
  * App\Http\Requests\Auth\LoginRequest). The token is named after the motherboard
- * UUID it was issued for, which is how every later request resolves its AI Box.
+ * UUID it was issued for, which is how every later request resolves its UNYSIS Box.
  */
 class AuthController extends Controller
 {
@@ -34,7 +34,7 @@ class AuthController extends Controller
 
     public const INACTIVE_MESSAGE = 'This account has been deactivated.';
 
-    public function __construct(private AiBoxService $boxes) {}
+    public function __construct(private UnysisBoxService $boxes) {}
 
     public function login(LoginRequest $request): JsonResponse
     {
@@ -58,7 +58,7 @@ class AuthController extends Controller
 
         if (! $user->isCustomerUser() || ! WebLoginRequest::isRpaToolOnly($user)
             || $customer === null || ! $customer->is_active) {
-            abort(403, ResolveAiBox::ACCOUNT_REFUSED);
+            abort(403, ResolveUnysisBox::ACCOUNT_REFUSED);
         }
 
         try {
@@ -69,7 +69,7 @@ class AuthController extends Controller
                 (string) $request->ip(),
                 $user,
             );
-        } catch (AiBoxBelongsToAnotherCustomer|AiBoxBlocked $e) {
+        } catch (UnysisBoxBelongsToAnotherCustomer|UnysisBoxBlocked $e) {
             abort(403, $e->getMessage());
         }
 
@@ -79,7 +79,7 @@ class AuthController extends Controller
 
         ActivityLogger::log(
             'api_login',
-            "RPA-TOOL login: {$user->email} on AI Box {$box->motherboard_uuid}",
+            "RPA-TOOL login: {$user->email} on UNYSIS Box {$box->motherboard_uuid}",
             $box,
         );
 
@@ -110,7 +110,7 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
-        $box = $request->attributes->get(ResolveAiBox::ATTRIBUTE);
+        $box = $request->attributes->get(ResolveUnysisBox::ATTRIBUTE);
         $token = $user->currentAccessToken();
 
         $expiresAt = $token instanceof Model ? $token->getAttribute('expires_at') : null;
@@ -121,7 +121,7 @@ class AuthController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function identityPayload(User $user, AiBox $box): array
+    private function identityPayload(User $user, UnysisBox $box): array
     {
         $customer = $user->customer;
 
@@ -133,10 +133,10 @@ class AuthController extends Controller
             ],
             'customer' => [
                 'id' => $customer?->id,
-                'name' => $customer?->name,
+                'code' => $customer?->code,
                 'company' => $customer?->company,
             ],
-            'ai_box' => [
+            'unysis_box' => [
                 'id' => $box->id,
                 'motherboard_uuid' => $box->motherboard_uuid,
                 'name' => $box->name,

@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { AiBox, Customer, CustomerUser, PageProps } from '@/types';
+import { UnysisBox, Customer, CustomerUser, PageProps } from '@/types';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { Input } from '@/Components/ui/input';
@@ -28,7 +28,7 @@ import { DataTableToolbar } from '@/Components/Common/DataTableToolbar';
 import { Edit, KeyRound, MoreHorizontal, Plus, Power, ShieldOff } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useFlashToast } from '@/hooks/use-flash-toast';
-import AiBoxStatusBadge from '@/Components/Marketplace/AiBoxStatusBadge';
+import UnysisBoxStatusBadge from '@/Components/Marketplace/UnysisBoxStatusBadge';
 import { formatRelative } from '@/Components/Marketplace/format';
 import {
     Table,
@@ -42,12 +42,12 @@ import {
 interface CustomerShowProps extends PageProps {
     customer: Customer;
     customerUsers: CustomerUser[];
-    aiBoxes: AiBox[];
+    unysisBoxes: UnysisBox[];
 }
 
-export default function Show({ customer, customerUsers, aiBoxes }: CustomerShowProps) {
+export default function Show({ customer, customerUsers, unysisBoxes }: CustomerShowProps) {
     useFlashToast();
-    const { canEdit, canViewAiBoxes } = usePage<PageProps>().props;
+    const { canEdit, canViewUnysisBoxes } = usePage<PageProps>().props;
     const [createOpen, setCreateOpen] = useState(false);
 
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
@@ -192,7 +192,7 @@ export default function Show({ customer, customerUsers, aiBoxes }: CustomerShowP
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">{customer.company}</h1>
                         <p className="text-muted-foreground">
-                            {customer.name}
+                            {customer.code}
                             {customer.is_active ? '' : ' — inactive'}
                         </p>
                     </div>
@@ -208,7 +208,7 @@ export default function Show({ customer, customerUsers, aiBoxes }: CustomerShowP
                 <Tabs defaultValue="users">
                     <TabsList>
                         <TabsTrigger value="users">Customer Users</TabsTrigger>
-                        <TabsTrigger value="ai-boxes">AI Boxes</TabsTrigger>
+                        <TabsTrigger value="unysis-boxes">UNYSIS Boxes</TabsTrigger>
                         <TabsTrigger value="details">Details</TabsTrigger>
                     </TabsList>
 
@@ -216,7 +216,7 @@ export default function Show({ customer, customerUsers, aiBoxes }: CustomerShowP
                         <div className="flex justify-between items-center">
                             <p className="text-sm text-muted-foreground">
                                 Customer Users sign in through RPA-TOOL only — they never reach the Marketplace
-                                admin. Each live session is one AI Box token.
+                                admin. Each live session is one UNYSIS Box token.
                             </p>
                             {canEdit && (
                                 <Button
@@ -237,15 +237,15 @@ export default function Show({ customer, customerUsers, aiBoxes }: CustomerShowP
                         </DataTable>
                     </TabsContent>
 
-                    <TabsContent value="ai-boxes" className="mt-4 space-y-4">
+                    <TabsContent value="unysis-boxes" className="mt-4 space-y-4">
                         <p className="text-sm text-muted-foreground">
-                            AI Boxes register themselves the first time one of this Customer's users signs in
-                            from RPA-TOOL. Labelling, acknowledging and blocking happen on the AI Box page.
+                            UNYSIS Boxes register themselves the first time one of this Customer's users signs in
+                            from RPA-TOOL. Labelling, acknowledging and blocking happen on the UNYSIS Box page.
                         </p>
 
-                        {aiBoxes.length === 0 ? (
+                        {unysisBoxes.length === 0 ? (
                             <p className="text-sm text-muted-foreground">
-                                No AI Box has ever signed in for this Customer.
+                                No UNYSIS Box has ever signed in for this Customer.
                             </p>
                         ) : (
                             <div className="rounded-md border overflow-x-auto">
@@ -259,13 +259,13 @@ export default function Show({ customer, customerUsers, aiBoxes }: CustomerShowP
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {aiBoxes.map((box) => (
+                                        {unysisBoxes.map((box) => (
                                             <TableRow key={box.id}>
                                                 <TableCell className="font-mono text-xs">
-                                                    {canViewAiBoxes ? (
+                                                    {canViewUnysisBoxes ? (
                                                         <Link
                                                             href={route(
-                                                                'admin.marketplace.ai-boxes.show',
+                                                                'admin.marketplace.unysis-boxes.show',
                                                                 box.id
                                                             )}
                                                             className="hover:underline"
@@ -280,7 +280,7 @@ export default function Show({ customer, customerUsers, aiBoxes }: CustomerShowP
                                                     {box.name || 'Unlabelled'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <AiBoxStatusBadge status={box.status} />
+                                                    <UnysisBoxStatusBadge status={box.status} />
                                                 </TableCell>
                                                 <TableCell
                                                     className="text-sm text-muted-foreground"
@@ -316,8 +316,8 @@ export default function Show({ customer, customerUsers, aiBoxes }: CustomerShowP
                                     <span>{customer.contact_phone || '—'}</span>
                                 </div>
                                 <div className="flex justify-between gap-4">
-                                    <span className="text-muted-foreground">AI Boxes</span>
-                                    <span>{customer.ai_boxes_count ?? 0}</span>
+                                    <span className="text-muted-foreground">UNYSIS Boxes</span>
+                                    <span>{customer.unysis_boxes_count ?? 0}</span>
                                 </div>
                                 {customer.notes && (
                                     <div className="pt-2">

@@ -2,9 +2,9 @@
 
 namespace App\Services\Marketplace;
 
-use App\Models\AiBox;
 use App\Models\Download;
 use App\Models\Revision;
+use App\Models\UnysisBox;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -22,7 +22,7 @@ class DownloadService
     public function record(
         Revision $revision,
         ?User $user,
-        ?AiBox $box,
+        ?UnysisBox $box,
         string $source,
         Request $request,
     ): Download {
@@ -31,7 +31,7 @@ class DownloadService
             'revisable_type' => $revision->revisable_type,
             'revisable_id' => $revision->revisable_id,
             'user_id' => $user?->getKey(),
-            'ai_box_id' => $box?->getKey(),
+            'unysis_box_id' => $box?->getKey(),
             'source' => $source,
             'ip' => $request->ip(),
             'user_agent' => mb_substr((string) $request->userAgent(), 0, 1000),

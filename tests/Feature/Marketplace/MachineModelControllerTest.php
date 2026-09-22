@@ -3,10 +3,10 @@
 namespace Tests\Feature\Marketplace;
 
 use App\Models\AiModel;
-use App\Models\FlowchartScript;
 use App\Models\MachineBrand;
 use App\Models\MachineModel;
 use App\Models\Role;
+use App\Models\Script;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -157,10 +157,10 @@ class MachineModelControllerTest extends TestCase
         $this->assertDatabaseCount('machine_models', 0);
     }
 
-    public function test_a_machine_model_with_flowchart_scripts_is_not_deleted(): void
+    public function test_a_machine_model_with_scripts_is_not_deleted(): void
     {
         $model = MachineModel::factory()->create(['machine_brand_id' => $this->brand->id]);
-        FlowchartScript::factory()->create(['machine_model_id' => $model->id]);
+        Script::factory()->create(['machine_model_id' => $model->id]);
 
         $this->actingAs($this->admin)
             ->delete("/admin/marketplace/machine-models/{$model->id}")

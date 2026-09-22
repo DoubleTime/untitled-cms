@@ -1,14 +1,14 @@
 # Marketplace API v1 — reference for RPA-TOOL
 
 The Unysis Marketplace exposes a read-only catalogue API that RPA-TOOL uses to browse
-FlowChart Scripts and AI Models and to download their Revisions. Everything lives under
+Scripts and AI Models and to download their Revisions. Everything lives under
 `/api/v1` and speaks JSON.
 
 - **Base URL**: `https://<marketplace-host>/api/v1`
 - **Content type**: `application/json`. Send `Accept: application/json` on every request.
 - **Auth**: a Sanctum bearer token obtained from `POST /login`.
 
-Terms used below (AI Box, FlowChart Script, AI Model, Revision, Customer User) are defined in
+Terms used below (UNYSIS Box, Script, AI Model, Revision, Customer User) are defined in
 [`CONTEXT.md`](../../CONTEXT.md).
 
 ---
@@ -18,16 +18,16 @@ Terms used below (AI Box, FlowChart Script, AI Model, Revision, Customer User) a
 ### The model
 
 RPA-TOOL signs in with a **human Customer User's** email and password *plus the motherboard UUID of
-the AI Box it is running on*. There is no per-device provisioning step: the first time a UUID is
-seen it is registered automatically as an AI Box under that user's Customer, with status `pending`.
+the UNYSIS Box it is running on*. There is no per-device provisioning step: the first time a UUID is
+seen it is registered automatically as an UNYSIS Box under that user's Customer, with status `pending`.
 A UNYSIS Team Member labels or blocks it afterwards.
 
 The token that comes back is **named after the motherboard UUID**, and every later request resolves
-the AI Box from that name. Consequences worth knowing:
+the UNYSIS Box from that name. Consequences worth knowing:
 
-- Use one token per AI Box. Do not copy a token from one box to another — the download log would
+- Use one token per UNYSIS Box. Do not copy a token from one box to another — the download log would
   attribute the fetch to the wrong box.
-- Downloads are attributed to `Customer User + AI Box`, both taken from the token. There is no
+- Downloads are attributed to `Customer User + UNYSIS Box`, both taken from the token. There is no
   request parameter that can change either.
 - Blocking a box, deactivating the Customer User, or deactivating the Customer takes effect on the
   **next request**, not when the token expires.
@@ -67,8 +67,8 @@ Accept: application/json
   "token_type": "Bearer",
   "expires_at": "2026-10-22T09:14:03.000000Z",
   "user":     { "id": "01j...", "name": "Aina", "email": "aina@inari.example" },
-  "customer": { "id": "01j...", "name": "Inari Amertron", "company": "Inari Amertron" },
-  "ai_box":   {
+  "customer": { "id": "01j...", "code": "INARI-123", "company": "Inari Amertron" },
+  "unysis_box":   {
     "id": "01j...",
     "motherboard_uuid": "4c4c4544-0037-5810-8043-b4c04f504433",
     "name": "SMT line 3 — cell A",
@@ -77,7 +77,7 @@ Accept: application/json
 }
 ```
 
-`ai_box.status` is one of `pending`, `active`, `blocked`. A `pending` box works normally — it just
+`unysis_box.status` is one of `pending`, `active`, `blocked`. A `pending` box works normally — it just
 has not been reviewed by a Team Member yet.
 
 **Failures**
@@ -88,8 +88,8 @@ has not been reviewed by a Team Member yet.
 | 422 | `errors.motherboard_uuid` | Missing or over 128 chars. |
 | 403 | `{"message":"This account has been deactivated."}` | `is_active` is false on the user. |
 | 403 | `{"message":"This account cannot access the Marketplace API."}` | Not a Customer User (a UNYSIS Team Member, say), or the Customer is deactivated. |
-| 403 | `{"message":"This AI Box (motherboard UUID …) has been blocked. Contact UNYSIS support."}` | The box was blocked. |
-| 403 | `{"message":"This AI Box (motherboard UUID …) is already registered to a different Customer. …"}` | The UUID belongs to another Customer's box. Never auto-reassigned. |
+| 403 | `{"message":"This UNYSIS Box (motherboard UUID …) has been blocked. Contact UNYSIS support."}` | The box was blocked. |
+| 403 | `{"message":"This UNYSIS Box (motherboard UUID …) is already registered to a different Customer. …"}` | The UUID belongs to another Customer's box. Never auto-reassigned. |
 | 429 | `{"message":"Too Many Attempts."}` | More than 5 login attempts in a minute from this IP. |
 
 ### Using the token
@@ -124,8 +124,8 @@ Confirms who the token belongs to and when it expires — useful as a cheap heal
 ```json
 {
   "user":     { "id": "01j...", "name": "Aina", "email": "aina@inari.example" },
-  "customer": { "id": "01j...", "name": "Inari Amertron", "company": "Inari Amertron" },
-  "ai_box":   { "id": "01j...", "motherboard_uuid": "4c4c…4433", "name": "SMT line 3 — cell A", "status": "active" },
+  "customer": { "id": "01j...", "code": "INARI-123", "company": "Inari Amertron" },
+  "unysis_box":   { "id": "01j...", "motherboard_uuid": "4c4c…4433", "name": "SMT line 3 — cell A", "status": "active" },
   "token_expires_at": "2026-10-22T09:14:03.000000Z"
 }
 ```
@@ -137,8 +137,8 @@ Confirms who the token belongs to and when it expires — useful as a cheap heal
 | Group | Limit | Bucket |
 |---|---|---|
 | `POST /login` | 5 / minute | Caller IP |
-| `GET …/download` | 20 / minute | Token (i.e. one AI Box) |
-| Everything else | 60 / minute | Token (i.e. one AI Box) |
+| `GET …/download` | 20 / minute | Token (i.e. one UNYSIS Box) |
+| Everything else | 60 / minute | Token (i.e. one UNYSIS Box) |
 
 Over the limit you get `429` with `Retry-After` and `X-RateLimit-*` headers. Honour `Retry-After`;
 do not retry in a tight loop.
@@ -172,14 +172,14 @@ Every active Customer, for building a filter dropdown. The Customer label on a c
 Customer it is labelled with.
 
 ```json
-{ "data": [ { "id": "01j...", "company": "Inari Amertron" } ] }
+{ "data": [ { "id": "01j...", "code": "INARI-123", "company": "Inari Amertron" } ] }
 ```
 
 ---
 
 ## 4. Catalogue
 
-FlowChart Scripts live under `/scripts`, AI Models under `/ai-models`. The two have the same five
+Scripts live under `/scripts`, AI Models under `/ai-models`. The two have the same five
 endpoints and the same payload shape, except that Scripts carry Preview Images and AI Models carry
 the inference metadata (`framework`, `input_size`, `labels`, `notes`).
 
@@ -314,7 +314,7 @@ X-Checksum-SHA256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00
 X-Revision-Number: 4
 ```
 
-FlowChart Scripts are `.zip` bundles; AI Models are `.h5` files.
+Scripts are `.zip` bundles; AI Models are `.h5` files.
 
 **Always verify the download.** Hash the bytes you received and compare with `X-Checksum-SHA256`
 (the same value as `sha256` in the Revision payload). Discard and retry on a mismatch.
@@ -344,7 +344,7 @@ if digest.hexdigest() != r.headers["X-Checksum-SHA256"]:
 | 403 | box/account message | The box was blocked, or the account or Customer deactivated, since the token was issued. |
 | 429 | `{"message":"Too Many Attempts."}` | More than 20 downloads in a minute from this box. |
 
-Every successful download is recorded against the Customer User and the AI Box, with source `api`.
+Every successful download is recorded against the Customer User and the UNYSIS Box, with source `api`.
 
 ---
 

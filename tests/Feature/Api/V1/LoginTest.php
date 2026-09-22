@@ -3,9 +3,9 @@
 namespace Tests\Feature\Api\V1;
 
 use App\Http\Controllers\Api\V1\AuthController;
-use App\Http\Middleware\ResolveAiBox;
-use App\Models\AiBox;
+use App\Http\Middleware\ResolveUnysisBox;
 use App\Models\Customer;
+use App\Models\UnysisBox;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class LoginTest extends ApiTestCase
@@ -14,7 +14,7 @@ class LoginTest extends ApiTestCase
 
     public function test_a_customer_user_gets_a_token_and_the_full_identity_payload(): void
     {
-        $customer = Customer::factory()->create(['company' => 'Inari Amertron']);
+        $customer = Customer::factory()->create(['code' => 'INARI-123', 'company' => 'Inari Amertron']);
         $user = $this->customerUser($customer, ['name' => 'Aina', 'email' => 'aina@inari.test']);
 
         $response = $this->login($user, self::UUID, 'Line 3 box');
@@ -25,11 +25,12 @@ class LoginTest extends ApiTestCase
             ->assertJsonPath('user.name', 'Aina')
             ->assertJsonPath('user.email', 'aina@inari.test')
             ->assertJsonPath('customer.id', $customer->id)
+            ->assertJsonPath('customer.code', 'INARI-123')
             ->assertJsonPath('customer.company', 'Inari Amertron')
-            ->assertJsonPath('ai_box.motherboard_uuid', self::UUID)
-            ->assertJsonPath('ai_box.name', 'Line 3 box')
-            ->assertJsonPath('ai_box.status', AiBox::STATUS_PENDING)
-            ->assertJsonStructure(['token', 'token_type', 'expires_at', 'user', 'customer', 'ai_box']);
+            ->assertJsonPath('unysis_box.motherboard_uuid', self::UUID)
+            ->assertJsonPath('unysis_box.name', 'Line 3 box')
+            ->assertJsonPath('unysis_box.status', UnysisBox::STATUS_PENDING)
+            ->assertJsonStructure(['token', 'token_type', 'expires_at', 'user', 'customer', 'unysis_box']);
 
         $this->assertNotEmpty($response->json('token'));
     }
@@ -57,9 +58,9 @@ class LoginTest extends ApiTestCase
 
         $this->login($user, '  '.strtoupper(self::UUID).' ')
             ->assertOk()
-            ->assertJsonPath('ai_box.motherboard_uuid', self::UUID);
+            ->assertJsonPath('unysis_box.motherboard_uuid', self::UUID);
 
-        $this->assertDatabaseHas('ai_boxes', ['motherboard_uuid' => self::UUID]);
+        $this->assertDatabaseHas('unysis_boxes', ['motherboard_uuid' => self::UUID]);
     }
 
     public function test_a_wrong_password_fails_with_the_generic_message(): void
@@ -102,7 +103,7 @@ class LoginTest extends ApiTestCase
             ->assertStatus(403)
             ->assertJsonPath('message', AuthController::INACTIVE_MESSAGE);
 
-        $this->assertDatabaseCount('ai_boxes', 0);
+        $this->assertDatabaseCount('unysis_boxes', 0);
     }
 
     public function test_a_team_member_is_refused(): void
@@ -111,7 +112,7 @@ class LoginTest extends ApiTestCase
 
         $this->login($user)
             ->assertStatus(403)
-            ->assertJsonPath('message', ResolveAiBox::ACCOUNT_REFUSED);
+            ->assertJsonPath('message', ResolveUnysisBox::ACCOUNT_REFUSED);
 
         $this->assertSame(0, $user->tokens()->count());
     }
@@ -123,7 +124,7 @@ class LoginTest extends ApiTestCase
 
         $this->login($user)
             ->assertStatus(403)
-            ->assertJsonPath('message', ResolveAiBox::ACCOUNT_REFUSED);
+            ->assertJsonPath('message', ResolveUnysisBox::ACCOUNT_REFUSED);
     }
 
     public function test_a_blocked_box_is_refused(): void
@@ -131,7 +132,7 @@ class LoginTest extends ApiTestCase
         $customer = Customer::factory()->create();
         $user = $this->customerUser($customer);
 
-        AiBox::factory()->blocked()->create([
+        UnysisBox::factory()->blocked()->create([
             'customer_id' => $customer->id,
             'motherboard_uuid' => self::UUID,
         ]);
@@ -145,7 +146,7 @@ class LoginTest extends ApiTestCase
     public function test_a_box_registered_to_another_customer_is_refused_and_never_reassigned(): void
     {
         $other = Customer::factory()->create();
-        $box = AiBox::factory()->create([
+        $box = UnysisBox::factory()->create([
             'customer_id' => $other->id,
             'motherboard_uuid' => self::UUID,
         ]);
@@ -165,10 +166,10 @@ class LoginTest extends ApiTestCase
 
         $this->login($user, self::UUID, 'Cell A')->assertOk();
 
-        $box = AiBox::where('motherboard_uuid', self::UUID)->firstOrFail();
+        $box = UnysisBox::where('motherboard_uuid', self::UUID)->firstOrFail();
 
         $this->assertSame($customer->id, $box->customer_id);
-        $this->assertSame(AiBox::STATUS_PENDING, $box->status);
+        $this->assertSame(UnysisBox::STATUS_PENDING, $box->status);
         $this->assertSame($user->id, $box->first_user_id);
         $this->assertSame('Cell A', $box->name);
         $this->assertNotNull($box->last_seen_at);
@@ -180,7 +181,7 @@ class LoginTest extends ApiTestCase
         $customer = Customer::factory()->create();
         $user = $this->customerUser($customer);
 
-        $box = AiBox::factory()->active()->create([
+        $box = UnysisBox::factory()->active()->create([
             'customer_id' => $customer->id,
             'motherboard_uuid' => self::UUID,
             'name' => 'Labelled by a Team Member',
@@ -190,12 +191,12 @@ class LoginTest extends ApiTestCase
 
         $this->login($user, self::UUID, 'Whatever the client calls itself')
             ->assertOk()
-            ->assertJsonPath('ai_box.id', $box->id)
-            ->assertJsonPath('ai_box.status', AiBox::STATUS_ACTIVE);
+            ->assertJsonPath('unysis_box.id', $box->id)
+            ->assertJsonPath('unysis_box.status', UnysisBox::STATUS_ACTIVE);
 
         $box->refresh();
 
-        $this->assertSame(1, AiBox::count());
+        $this->assertSame(1, UnysisBox::count());
         $this->assertSame('Labelled by a Team Member', $box->name);
         $this->assertTrue($box->last_seen_at->greaterThan(now()->subMinute()));
     }

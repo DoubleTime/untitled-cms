@@ -38,16 +38,17 @@ export interface MachineModel {
     description?: string | null;
     is_active: boolean;
     machine_brand?: Pick<MachineBrand, 'id' | 'name'> | null;
-    flowchart_scripts_count?: number;
+    scripts_count?: number;
     ai_models_count?: number;
     created_at?: string;
     updated_at?: string;
 }
 
-/** A company that owns AI Boxes and has its own Customer Users. */
+/** A company that owns UNYSIS Boxes and has its own Customer Users. */
 export interface Customer {
     id: string;
-    name: string;
+    /** Short unique key, e.g. INARI-123. Always uppercase. */
+    code: string;
     company: string;
     contact_name?: string | null;
     contact_email?: string | null;
@@ -55,7 +56,7 @@ export interface Customer {
     notes?: string | null;
     is_active: boolean;
     users_count?: number;
-    ai_boxes_count?: number;
+    unysis_boxes_count?: number;
     created_at?: string;
     updated_at?: string;
 }
@@ -70,7 +71,7 @@ export interface CustomerUser {
     email: string;
     is_active: boolean;
     customer_id: string;
-    /** Live Sanctum tokens — one per AI Box session. */
+    /** Live Sanctum tokens — one per UNYSIS Box session. */
     tokens_count: number;
     created_at?: string;
 }
@@ -79,12 +80,12 @@ export interface CustomerUser {
 export type RevisionStatus = 'draft' | 'released' | 'deprecated';
 
 /**
- * An immutable, sequentially numbered upload of an AI Model or FlowChart Script,
+ * An immutable, sequentially numbered upload of an AI Model or Script,
  * carrying a change note and the Team Member who uploaded it.
  */
 export interface Revision {
     id: string;
-    revisable_type: 'flowchart_script' | 'ai_model';
+    revisable_type: 'script' | 'ai_model';
     revisable_id: string;
     number: number;
     status: RevisionStatus;
@@ -101,15 +102,15 @@ export interface Revision {
     uploader?: Pick<User, 'id' | 'name'> | null;
     releaser?: Pick<User, 'id' | 'name'> | null;
     downloads_count?: number;
-    /** Distinct AI Boxes that pulled this Revision. */
+    /** Distinct UNYSIS Boxes that pulled this Revision. */
     unique_boxes_count?: number;
     created_at?: string;
 }
 
-/** A picture attached to a FlowChart Script so it can be recognised before downloading. */
-export interface FlowchartScriptImage {
+/** A picture attached to a Script so it can be recognised before downloading. */
+export interface ScriptImage {
     id: string;
-    flowchart_script_id: string;
+    script_id: string;
     vault_file_id: string;
     sort_order: number;
     vault_file?: {
@@ -122,7 +123,7 @@ export interface FlowchartScriptImage {
 }
 
 /** A packaged automation sequence for one Machine Model. */
-export interface FlowchartScript {
+export interface Script {
     id: string;
     machine_model_id: string;
     customer_id?: string | null;
@@ -136,7 +137,7 @@ export interface FlowchartScript {
     }) | null;
     customer?: Pick<Customer, 'id' | 'company'> | null;
     creator?: Pick<User, 'id' | 'name'> | null;
-    images?: FlowchartScriptImage[];
+    images?: ScriptImage[];
     revisions_count?: number;
     downloads_count?: number;
     /** Highest released Revision number, or null when nothing has been released. */
@@ -145,7 +146,7 @@ export interface FlowchartScript {
     updated_at?: string;
 }
 
-/** A trained inference model published on its own, independent of any FlowChart Script. */
+/** A trained inference model published on its own, independent of any Script. */
 export interface AiModel {
     id: string;
     machine_model_id: string;
@@ -175,10 +176,10 @@ export interface AiModel {
 export interface Download {
     id: string;
     revision_id: string;
-    revisable_type: 'flowchart_script' | 'ai_model';
+    revisable_type: 'script' | 'ai_model';
     revisable_id: string;
     user_id?: string | null;
-    ai_box_id?: string | null;
+    unysis_box_id?: string | null;
     source: 'api' | 'web';
     ip?: string | null;
     user_agent?: string | null;
@@ -187,22 +188,22 @@ export interface Download {
     created_at?: string;
 }
 
-/** Where an AI Box stands: auto-registered, acknowledged, or cut off. */
-export type AiBoxStatus = 'pending' | 'active' | 'blocked';
+/** Where an UNYSIS Box stands: auto-registered, acknowledged, or cut off. */
+export type UnysisBoxStatus = 'pending' | 'active' | 'blocked';
 
 /**
  * A deployed UNYSIS edge device running RPA-TOOL, identified by its motherboard
  * UUID and belonging to one Customer. Auto-registered on first API login — the
  * admin only labels, acknowledges, blocks or removes one.
  */
-export interface AiBox {
+export interface UnysisBox {
     id: string;
     customer_id: string;
     motherboard_uuid: string;
     name?: string | null;
     location?: string | null;
     machine_model_id?: string | null;
-    status: AiBoxStatus;
+    status: UnysisBoxStatus;
     last_seen_at?: string | null;
     last_ip?: string | null;
     first_user_id?: string | null;
@@ -217,12 +218,12 @@ export interface AiBox {
 }
 
 /**
- * What an AI Box currently runs for one catalogue entry: derived server-side as
+ * What an UNYSIS Box currently runs for one catalogue entry: derived server-side as
  * the latest Download of that entry by that box. Never stored.
  */
 export interface InstalledRevision {
     key: string;
-    entry_type: 'flowchart_script' | 'ai_model';
+    entry_type: 'script' | 'ai_model';
     entry_id: string;
     entry_name?: string | null;
     entry_deleted: boolean;
@@ -241,12 +242,12 @@ export interface DownloadLogRow {
     created_at?: string | null;
     source: 'api' | 'web';
     ip?: string | null;
-    entry_type: 'flowchart_script' | 'ai_model';
+    entry_type: 'script' | 'ai_model';
     entry_id: string;
     entry_name?: string | null;
     entry_deleted: boolean;
     user?: Pick<User, 'id' | 'name'> | null;
-    ai_box?: Pick<AiBox, 'id' | 'name' | 'motherboard_uuid'> | null;
+    unysis_box?: Pick<UnysisBox, 'id' | 'name' | 'motherboard_uuid'> | null;
     revision?: Pick<Revision, 'id' | 'number'> | null;
 }
 
@@ -293,7 +294,7 @@ export type PageProps<
     canRelease?: boolean;
     canHardDelete?: boolean;
     canBlock?: boolean;
-    canViewAiBoxes?: boolean;
+    canViewUnysisBoxes?: boolean;
     passwordRulesString?: string;
 };
 

@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Marketplace;
 
-use App\Models\AiBox;
 use App\Models\Customer;
 use App\Models\Role;
+use App\Models\UnysisBox;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -61,7 +61,7 @@ class CustomerControllerTest extends TestCase
     {
         $this->actingAs($this->admin)
             ->post('/admin/marketplace/customers', [
-                'name' => 'Inari Amertron',
+                'code' => 'inari-123',
                 'company' => 'Inari',
                 'contact_name' => 'Aina',
                 'contact_email' => 'aina@example.com',
@@ -71,20 +71,41 @@ class CustomerControllerTest extends TestCase
             ])
             ->assertRedirect(route('admin.marketplace.customers.index'));
 
-        $this->assertDatabaseHas('customers', ['company' => 'Inari', 'name' => 'Inari Amertron']);
+        $this->assertDatabaseHas('customers', ['company' => 'Inari', 'code' => 'INARI-123']);
     }
 
-    public function test_name_and_company_are_required(): void
+    public function test_code_and_company_are_required(): void
     {
         $this->actingAs($this->admin)
             ->post('/admin/marketplace/customers', [])
-            ->assertSessionHasErrors(['name', 'company']);
+            ->assertSessionHasErrors(['code', 'company']);
+    }
+
+    public function test_the_code_must_be_unique(): void
+    {
+        Customer::factory()->create(['code' => 'INARI-123']);
+
+        $this->actingAs($this->admin)
+            ->post('/admin/marketplace/customers', ['code' => 'inari-123', 'company' => 'Inari'])
+            ->assertSessionHasErrors('code');
+    }
+
+    public function test_updating_keeps_its_own_code(): void
+    {
+        $customer = Customer::factory()->create(['code' => 'INARI-123']);
+
+        $this->actingAs($this->admin)
+            ->put("/admin/marketplace/customers/{$customer->id}", [
+                'code' => 'INARI-123',
+                'company' => 'Inari',
+            ])
+            ->assertSessionHasNoErrors();
     }
 
     public function test_creating_is_denied_without_the_permission(): void
     {
         $this->actingAs($this->userWithPermissions(['customers.view']))
-            ->post('/admin/marketplace/customers', ['name' => 'Inari Amertron', 'company' => 'Inari'])
+            ->post('/admin/marketplace/customers', ['code' => 'INARI-123', 'company' => 'Inari'])
             ->assertForbidden();
 
         $this->assertDatabaseCount('customers', 0);
@@ -106,14 +127,14 @@ class CustomerControllerTest extends TestCase
 
         $this->actingAs($this->admin)
             ->put("/admin/marketplace/customers/{$customer->id}", [
-                'name' => 'Inari Amertron Berhad',
+                'code' => 'inari-456',
                 'company' => 'Inari',
                 'is_active' => false,
             ])
             ->assertRedirect(route('admin.marketplace.customers.index'));
 
         $customer->refresh();
-        $this->assertSame('Inari Amertron Berhad', $customer->name);
+        $this->assertSame('INARI-456', $customer->code);
         $this->assertFalse($customer->is_active);
     }
 
@@ -140,10 +161,10 @@ class CustomerControllerTest extends TestCase
         $this->assertDatabaseHas('customers', ['id' => $customer->id]);
     }
 
-    public function test_a_customer_with_ai_boxes_is_not_deleted(): void
+    public function test_a_customer_with_unysis_boxes_is_not_deleted(): void
     {
         $customer = Customer::factory()->create();
-        AiBox::factory()->create(['customer_id' => $customer->id]);
+        UnysisBox::factory()->create(['customer_id' => $customer->id]);
 
         $this->actingAs($this->admin)
             ->delete("/admin/marketplace/customers/{$customer->id}")

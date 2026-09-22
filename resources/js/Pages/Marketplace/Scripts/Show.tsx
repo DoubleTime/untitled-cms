@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
-import { Download as DownloadRow, FlowchartScript, PageProps, Revision } from '@/types';
+import { Download as DownloadRow, Script, PageProps, Revision } from '@/types';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
@@ -14,7 +14,7 @@ import PreviewImagesManager from '@/Components/Marketplace/PreviewImagesManager'
 import DownloadsTable from '@/Components/Marketplace/DownloadsTable';
 
 interface ScriptShowProps extends PageProps {
-    script: FlowchartScript;
+    script: Script;
     revisions: Revision[];
     downloads: DownloadRow[];
     downloadStats: { total: number; unique_boxes: number };
@@ -72,7 +72,7 @@ export default function Show({
                                 )}
                                 <Badge variant="outline">{revisions.length} Revisions</Badge>
                                 <Badge variant="outline">{downloadStats.total} Downloads</Badge>
-                                <Badge variant="outline">{downloadStats.unique_boxes} AI Boxes</Badge>
+                                <Badge variant="outline">{downloadStats.unique_boxes} UNYSIS Boxes</Badge>
                             </div>
                         </div>
                     </div>
@@ -129,7 +129,7 @@ export default function Show({
                         <Card className="max-w-2xl">
                             <CardHeader>
                                 <CardTitle>Details</CardTitle>
-                                <CardDescription>Where this FlowChart Script came from.</CardDescription>
+                                <CardDescription>Where this Script came from.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-3 text-sm">
                                 <div className="flex justify-between gap-4">

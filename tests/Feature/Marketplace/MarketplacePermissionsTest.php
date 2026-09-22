@@ -27,7 +27,7 @@ class MarketplacePermissionsTest extends TestCase
             'scripts.upload', 'scripts.release', 'scripts.hard_delete',
             'ai_models.view', 'ai_models.create', 'ai_models.edit', 'ai_models.delete',
             'ai_models.upload', 'ai_models.release', 'ai_models.hard_delete',
-            'ai_boxes.view', 'ai_boxes.edit', 'ai_boxes.block',
+            'unysis_boxes.view', 'unysis_boxes.edit', 'unysis_boxes.block',
             'downloads.view',
         ] as $permission) {
             $this->assertContains($permission, $available);
