@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\LoginRequest;
 use App\Models\Role;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\Marketplace\CustomerUserGuard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +17,8 @@ use Laravel\Socialite\Facades\Socialite;
 class SocialAuthController extends Controller
 {
     private const SUPPORTED_PROVIDERS = ['google', 'github'];
+
+    public function __construct(private CustomerUserGuard $customerUsers) {}
 
     public function redirect(string $provider): RedirectResponse
     {
@@ -66,9 +68,9 @@ class SocialAuthController extends Controller
         // A Customer User linked by email is refused exactly as on the password
         // login — they belong to RPA-TOOL and never get a web session. Checked
         // before the provider is linked so no social account is attached to them.
-        if ($user && LoginRequest::isRpaToolOnly($user)) {
+        if ($user && $this->customerUsers->isRpaToolOnly($user)) {
             return redirect()->route('login')->withErrors([
-                'email' => LoginRequest::RPA_TOOL_ONLY_MESSAGE,
+                'email' => CustomerUserGuard::RPA_TOOL_ONLY_MESSAGE,
             ]);
         }
 
@@ -101,9 +103,9 @@ class SocialAuthController extends Controller
 
         // Belt and braces: the race-recovery path above can hand back a different
         // record than the one checked earlier.
-        if (LoginRequest::isRpaToolOnly($user)) {
+        if ($this->customerUsers->isRpaToolOnly($user)) {
             return redirect()->route('login')->withErrors([
-                'email' => LoginRequest::RPA_TOOL_ONLY_MESSAGE,
+                'email' => CustomerUserGuard::RPA_TOOL_ONLY_MESSAGE,
             ]);
         }
 

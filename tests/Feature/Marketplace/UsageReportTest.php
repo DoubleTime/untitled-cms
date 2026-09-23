@@ -12,6 +12,7 @@ use App\Models\Role;
 use App\Models\Script;
 use App\Models\UnysisBox;
 use App\Models\User;
+use App\Services\Marketplace\UsageReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
@@ -167,6 +168,77 @@ class UsageReportTest extends TestCase
 
         $this->assertSame(1, $rows['CARSEM-1']['downloads']);
         $this->assertSame(1, $rows['CARSEM-1']['distinct_entries']);
+    }
+
+    /**
+     * The section is about usage, so a Customer that downloaded nothing in the
+     * range is not a row at all — listing every Customer with zeroes buries the
+     * ones that matter.
+     */
+    public function test_a_customer_with_no_downloads_in_the_range_is_not_listed(): void
+    {
+        $alpha = $this->script('Alpha');
+
+        $this->download($alpha, $this->inariBox);
+        // Carsem exists, has an active box, and downloaded nothing.
+
+        $codes = collect($this->usageProps('customers'))->pluck('customer_code')->all();
+
+        $this->assertSame(['INARI-1'], $codes);
+    }
+
+    public function test_a_customer_outside_the_range_drops_out_of_the_section(): void
+    {
+        $alpha = $this->script('Alpha');
+
+        $this->download($alpha, $this->inariBox, ['created_at' => now()->subDays(2)]);
+        $this->download($alpha, $this->carsemBox, ['created_at' => now()->subDays(200)]);
+
+        $lastSeven = collect($this->usageProps('customers', '?range=7'))->pluck('customer_code')->all();
+        $this->assertSame(['INARI-1'], $lastSeven);
+
+        $allTime = collect($this->usageProps('customers', '?range=all'))
+            ->pluck('customer_code')->sort()->values()->all();
+        $this->assertSame(['CARSEM-1', 'INARI-1'], $allTime);
+    }
+
+    /**
+     * A Team Member's web fetch belongs to no Customer, so it is reported under a
+     * single "No Customer (internal)" row — and only when such a fetch is in range.
+     */
+    public function test_the_internal_row_appears_only_when_a_download_has_no_customer(): void
+    {
+        $alpha = $this->script('Alpha');
+
+        $this->download($alpha, $this->inariBox);
+
+        $companies = collect($this->usageProps('customers'))->pluck('customer_company')->all();
+        $this->assertNotContains(UsageReportService::NO_CUSTOMER_LABEL, $companies);
+
+        // A web download from a Team Member: no UNYSIS Box, and the user carries no
+        // customer_id, so coalesce() finds nothing to attribute it to.
+        Download::factory()->create([
+            'revision_id' => $this->releasedRevision($alpha, ++$this->revisionNumber)->id,
+            'revisable_type' => $alpha->getMorphClass(),
+            'revisable_id' => $alpha->getKey(),
+            'unysis_box_id' => null,
+            'user_id' => $this->admin->id,
+            'source' => Download::SOURCE_WEB,
+        ]);
+
+        $rows = collect($this->usageProps('customers'))->keyBy('customer_company');
+
+        $this->assertArrayHasKey(UsageReportService::NO_CUSTOMER_LABEL, $rows);
+
+        $internal = $rows[UsageReportService::NO_CUSTOMER_LABEL];
+
+        $this->assertNull($internal['customer_id']);
+        $this->assertNull($internal['customer_code']);
+        $this->assertSame(1, $internal['downloads']);
+        $this->assertSame(0, $internal['active_boxes']);
+
+        // One row per Customer that downloaded, plus exactly one internal row.
+        $this->assertCount(2, $rows);
     }
 
     public function test_the_date_range_excludes_older_downloads(): void

@@ -20,12 +20,12 @@ class ScriptResource extends JsonResource
     public function toArray(Request $request): array
     {
         return $this->commonEntryFields() + [
-            'cover_image_url' => $this->coverImageUrl(),
+            'preview_image_url' => $this->previewImageUrl(),
         ];
     }
 
-    /** The first Preview Image is the cover. */
-    protected function coverImageUrl(): ?string
+    /** The first Preview Image represents the Script. */
+    protected function previewImageUrl(): ?string
     {
         if (! $this->relationLoaded('images')) {
             return null;

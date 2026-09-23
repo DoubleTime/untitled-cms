@@ -9,6 +9,7 @@ use App\Models\Script;
 use App\Models\User;
 use App\Services\ClamAvScanner;
 use App\Services\Marketplace\RevisionService;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -209,6 +210,58 @@ class RevisionServiceTest extends TestCase
         $this->expectException(ValidationException::class);
 
         $this->service()->upload($script, $this->zipFile(), 'Infected', $this->uploader);
+    }
+
+    /**
+     * A partial mock whose nextNumber() is scripted, so the retry loop around the
+     * unique index on (revisable_type, revisable_id, number) can be driven without
+     * a second concurrent process.
+     */
+    protected function serviceWithScriptedNumbering(): Mockery\MockInterface
+    {
+        return Mockery::mock(RevisionService::class, [app(ClamAvScanner::class)])
+            ->makePartial()
+            ->shouldAllowMockingProtectedMethods();
+    }
+
+    public function test_a_unique_number_collision_is_retried_once(): void
+    {
+        $script = Script::factory()->create();
+
+        $this->service()->upload($script, $this->zipFile(), 'First', $this->uploader);
+
+        // First attempt hands back a number that is already taken — exactly what a
+        // concurrent upload does — so the insert violates the unique index; the
+        // second attempt gets the real next number and wins.
+        $service = $this->serviceWithScriptedNumbering();
+        $service->shouldReceive('nextNumber')->twice()->andReturn(1, 2);
+
+        $revision = $service->upload($script, $this->zipFile(), 'Second', $this->uploader);
+
+        $this->assertSame(2, $revision->number);
+        $this->assertSame(2, Revision::query()->where('revisable_id', $script->id)->count());
+    }
+
+    public function test_a_database_error_that_is_not_a_unique_violation_is_not_retried(): void
+    {
+        $script = Script::factory()->create();
+
+        $previous = new \PDOException('SQLSTATE[42S22]: Column not found');
+        $previous->errorInfo = ['42S22', 1054, 'Unknown column'];
+
+        $service = $this->serviceWithScriptedNumbering();
+        // once(): the loop must rethrow straight away rather than make a second pass.
+        $service->shouldReceive('nextNumber')
+            ->once()
+            ->andThrow(new QueryException('sqlite', 'select 1', [], $previous));
+
+        $this->expectException(QueryException::class);
+
+        try {
+            $service->upload($script, $this->zipFile(), 'Broken', $this->uploader);
+        } finally {
+            $this->assertSame(0, Revision::query()->where('revisable_id', $script->id)->count());
+        }
     }
 
     public function test_a_draft_can_be_released_and_then_deprecated(): void

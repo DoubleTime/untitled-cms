@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Marketplace;
 
+use App\Support\CatalogueEntryType;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -16,9 +17,17 @@ class StoreRevisionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $revisable = $this->route('script') ?? $this->route('ai_model');
+        // One request class serves both catalogue entry types, and the route
+        // parameter is named after the alias, so the aliases are what it looks for.
+        foreach (CatalogueEntryType::ALL as $alias) {
+            $revisable = $this->route($alias);
 
-        return $revisable !== null && $this->user()->can('upload', $revisable);
+            if ($revisable !== null) {
+                return $this->user()->can('upload', $revisable);
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -542,3 +542,48 @@ and the seeded admin role both count 42; every dashboard and report query was al
 PostgreSQL directly, not just SQLite; Pint clean; `npm run build` exits 0; suite green at 347 tests /
 1316 assertions (down from 362 — the CMS tests went, `DashboardTest`, `DownloadExportTest` and
 `UsageReportTest` arrived). `route:list --except-vendor` fell from 203 to 158 routes.
+
+## [2026-09-23] update | Code-review fixes: logout gate, lookup semantics, service extraction, CatalogueAdminController
+
+Applied the findings of a Standards + Spec review of the Marketplace work.
+
+**Spec.** `POST /api/v1/logout` moved out of the `unysis-box` middleware group: it needs only
+`auth:sanctum` + `throttle:rpa`, so a blocked box, a deactivated Customer User and a deactivated
+Customer can all revoke their own token (everything else, `GET /me` included, still 403s).
+`RevisionService`'s upload retry now fires only on a unique-constraint violation — `isUniqueViolation()`
+reads `errorInfo[0]` for SQLSTATE `23505` / `23000` — and rethrows every other `QueryException` at
+once. `Api\V1\LookupController::customers` and `machineModels` no longer filter `->active()`: both are
+filter lists for entries that may still be labelled with an inactive Customer or Machine Model, so the
+rows stay and `CustomerResource` / `MachineModelResource` carry `is_active` instead. An entry with no
+released **and** no deprecated Revision now 404s from `show` and `revisions` with
+`NO_RELEASED_REVISION`, consistent with the list hiding it. `cover_image_url` renamed to
+`preview_image_url` throughout ("cover" is on the `_Avoid_` list for Preview Image in `CONTEXT.md`).
+The Usage report's by-Customer section now matches its docblock: only Customers with a Download in the
+range, plus one "No Customer (internal)" row when unattributed web downloads are in range.
+
+**Standards.** Removed the redundant private `authorizeView()` from `DownloadController` and
+`ReportController` — both routes already sit in the `can:downloads.view` group. Added
+`App\Http\Controllers\Marketplace\CatalogueAdminController`, an abstract holding every Revision action,
+restore, force delete and the shared payload builders; `ScriptController` and `AiModelController` keep
+only what differs and thin typed overrides for implicit route model binding. Fixed the
+`'script-script'` slug fallback typo. Moved business logic out of controllers into
+`App\Services\Marketplace\{UsageReportService, DashboardStatsService}` and `DownloadService::statsFor()`,
+and `git mv`'d `DownloadQuery` and `DownloadPresenter` from `App\Support` into `App\Services\Marketplace`.
+`LoginRequest::isRpaToolOnly()` and `RPA_TOOL_ONLY_MESSAGE` became
+`App\Services\Marketplace\CustomerUserGuard`, injected into the web login, Socialite, the API login and
+`ResolveUnysisBox`. Added `App\Support\CatalogueEntryType` (constants `SCRIPT`, `AI_MODEL`, `ALL`, plus
+`modelClass()`, `label()`, `fromModel()`) and used it in the presenter, the query builder, the dashboard
+stats, `UnysisBoxInstalledService`, `StoreRevisionRequest`, `UpdateAiModelRequest`, the
+`enforceMorphMap()` call and `config/marketplace.php`. Deduped `withVisibleRevisions()` /
+`loadVisibleRevisions()` in `Api\V1\CatalogueController`.
+
+**Docs.** Rewrote `CONTRIBUTING.md` against reality — PostgreSQL rather than MongoDB, plain Eloquent
+with `HasUlidKey`, branch from `master`, PHP 8.4, the AGENTS.md command set, SQLite in-memory testing —
+and dropped the `declare(strict_types=1)` rule (0 of 149 files complied), naming Pint as the style
+authority instead. Updated `docs/api/rpa-tool-v1.md` (logout gate, lookup semantics, draft-only 404,
+`preview_image_url`), `wiki/modules/marketplace.md` (bare `Last updated` date per `wiki/SCHEMA.md`),
+`wiki/modules/services.md` and the AGENTS.md service and support lists.
+
+Verification: Pint clean on every changed PHP file; `npm run build` exits 0; suite green at 358 tests /
+1406 assertions (up from 347 — eleven new cases across `LogoutMeTest`, `CatalogueReadTest`,
+`RevisionServiceTest` and `UsageReportTest`).

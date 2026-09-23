@@ -37,6 +37,9 @@ abstract class CatalogueController extends Controller
 
     public const NO_RELEASED_REVISION = 'No released revision available.';
 
+    /** The Revision statuses the API exposes. Drafts are never among them. */
+    public const VISIBLE_STATUSES = [Revision::STATUS_RELEASED, Revision::STATUS_DEPRECATED];
+
     public function __construct(protected DownloadService $downloads) {}
 
     /** @return class-string<Model> */
@@ -96,13 +99,30 @@ abstract class CatalogueController extends Controller
      */
     protected function withVisibleRevisions(Builder $query): void
     {
-        $visible = [Revision::STATUS_RELEASED, Revision::STATUS_DEPRECATED];
+        $query->with($this->visibleRevisionsRelation())
+            ->withCount($this->visibleRevisionCounts());
+    }
 
-        $query->with(['revisions' => fn ($q) => $q->whereIn('status', $visible)->orderByDesc('number')])
-            ->withCount([
-                'revisions as revisions_count' => fn (Builder $q) => $q->whereIn('status', $visible),
-                'downloads as downloads_count',
-            ]);
+    /**
+     * The eager-load and the counts are identical whether they are applied to a
+     * Builder (the list) or to a loaded model (detail), so they are defined once.
+     *
+     * @return array<string, callable>
+     */
+    private function visibleRevisionsRelation(): array
+    {
+        return ['revisions' => fn ($q) => $q
+            ->whereIn('status', self::VISIBLE_STATUSES)
+            ->orderByDesc('number')];
+    }
+
+    /** @return array<int|string, mixed> */
+    private function visibleRevisionCounts(): array
+    {
+        return [
+            'revisions as revisions_count' => fn (Builder $q) => $q->whereIn('status', self::VISIBLE_STATUSES),
+            'downloads as downloads_count',
+        ];
     }
 
     protected function applyFilters(Builder $query, Request $request): void
@@ -128,10 +148,23 @@ abstract class CatalogueController extends Controller
         });
     }
 
+    /**
+     * An entry with nothing but draft Revisions is not part of the catalogue as far
+     * as RPA-TOOL is concerned: the list hides it and `download` has nothing to
+     * give, so `show` and `revisions` refuse it with the same message rather than
+     * answering with an empty `revisions` array. A deprecated-only entry still
+     * resolves — a box may re-fetch what it already runs.
+     */
+    protected function assertVisibleRevisions(Script|AiModel $entry): void
+    {
+        abort_if($entry->revisions->isEmpty(), 404, self::NO_RELEASED_REVISION);
+    }
+
     protected function showEntry(Script|AiModel $entry): JsonResponse
     {
         $entry->load($this->detailRelations());
         $this->loadVisibleRevisions($entry);
+        $this->assertVisibleRevisions($entry);
 
         $resource = $this->detailResourceClass();
 
@@ -140,8 +173,12 @@ abstract class CatalogueController extends Controller
 
     protected function revisionsFor(Script|AiModel $entry): JsonResponse
     {
+        $revisions = $this->visibleRevisions($entry);
+
+        $this->assertVisibleRevisions($entry);
+
         return response()->json([
-            'data' => RevisionResource::collection($this->visibleRevisions($entry))->resolve(request()),
+            'data' => RevisionResource::collection($revisions)->resolve(request()),
         ]);
     }
 
@@ -159,7 +196,7 @@ abstract class CatalogueController extends Controller
 
             $revision = $entry->revisions()
                 ->where('number', $number)
-                ->whereIn('status', [Revision::STATUS_RELEASED, Revision::STATUS_DEPRECATED])
+                ->whereIn('status', self::VISIBLE_STATUSES)
                 ->first();
 
             abort_if($revision === null, 404, "Revision {$number} is not available for download.");
@@ -227,12 +264,7 @@ abstract class CatalogueController extends Controller
 
     protected function loadVisibleRevisions(Script|AiModel $entry): void
     {
-        $visible = [Revision::STATUS_RELEASED, Revision::STATUS_DEPRECATED];
-
-        $entry->load(['revisions' => fn ($q) => $q->whereIn('status', $visible)->orderByDesc('number')])
-            ->loadCount([
-                'revisions as revisions_count' => fn (Builder $q) => $q->whereIn('status', $visible),
-                'downloads as downloads_count',
-            ]);
+        $entry->load($this->visibleRevisionsRelation())
+            ->loadCount($this->visibleRevisionCounts());
     }
 }

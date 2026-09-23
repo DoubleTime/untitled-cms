@@ -117,6 +117,11 @@ Deletes the token used to make the call. Other tokens (other boxes) are untouche
 HTTP/1.1 204 No Content
 ```
 
+Logout only needs a valid token — it deliberately sits **outside** the UNYSIS Box gate that every
+other authenticated endpoint passes through. A box that has since been blocked, a Customer User who
+has been deactivated and a Customer that has been deactivated can all still revoke their own token
+(every other endpoint, `GET /me` included, answers `403` for them).
+
 ### `GET /me`
 
 Confirms who the token belongs to and when it expires — useful as a cheap health check on startup.
@@ -157,22 +162,28 @@ All three are small, unpaginated and safe to cache for the session. Results are 
 
 ### `GET /machine-models`
 
-Active Machine Models only. Optional `?brand=<machine brand id>`.
+Every Machine Model, active or not, with an `is_active` flag. Optional `?brand=<machine brand id>`.
+
+Inactive rows are returned because a catalogue entry may still be labelled with one: this is a
+filter list, so grey an inactive row out rather than dropping it.
 
 ```json
 { "data": [
-  { "id": "01j...", "name": "NXT III", "slug": "nxt-iii", "brand": { "id": "01j...", "name": "Fuji" } }
+  { "id": "01j...", "name": "NXT III", "slug": "nxt-iii", "is_active": true, "brand": { "id": "01j...", "name": "Fuji" } }
 ] }
 ```
 
 ### `GET /customers`
 
-Every active Customer, for building a filter dropdown. The Customer label on a catalogue entry is a
-**filter, not a permission** — every Customer User can see and download every entry, whichever
-Customer it is labelled with.
+Every Customer, active or not, with an `is_active` flag, for building a filter dropdown. The
+Customer label on a catalogue entry is a **filter, not a permission** — every Customer User can see
+and download every entry, whichever Customer it is labelled with.
+
+Inactive Customers are returned for the same reason as inactive Machine Models: an entry may still
+carry the label. Grey them out rather than dropping them.
 
 ```json
-{ "data": [ { "id": "01j...", "code": "INARI-123", "company": "Inari Amertron" } ] }
+{ "data": [ { "id": "01j...", "code": "INARI-123", "company": "Inari Amertron", "is_active": true } ] }
 ```
 
 ---
@@ -213,7 +224,7 @@ Results are ordered by name.
       "description": "Aligns and verifies tray feeders before the run starts.",
       "machine_model": { "id": "01j...", "name": "NXT III", "brand": { "id": "01j...", "name": "Fuji" } },
       "customer": { "id": "01j...", "company": "Inari Amertron" },
-      "cover_image_url": "https://marketplace.example/media/6f1c….png",
+      "preview_image_url": "https://marketplace.example/media/6f1c….png",
       "latest_revision": {
         "id": "01j...",
         "number": 4,
@@ -235,12 +246,12 @@ Results are ordered by name.
 Notes:
 
 - `customer` is `null` when the entry carries no Customer label.
-- `cover_image_url` is the first Preview Image, or `null`. Scripts only.
+- `preview_image_url` is the first Preview Image, or `null`. Scripts only.
 - `revisions_count` counts the Revisions this API exposes (released + deprecated), not drafts.
 - `latest_revision` is the highest-numbered **released** Revision, or `null` (which cannot happen in
   a list result, only in a detail result).
 - AI Model rows additionally carry `framework`, `input_size`, `labels` and `notes`, and have no
-  `cover_image_url`.
+  `preview_image_url`.
 
 ### `GET /scripts/{id}` · `GET /ai-models/{id}`
 
@@ -281,7 +292,16 @@ The list fields plus:
 }
 ```
 
-A deleted (or never-existing) entry returns `404`.
+A deleted (or never-existing) entry returns `404`. So does an entry whose Revisions are **all
+drafts** — consistent with the list, which hides it, and with `download`, which has nothing to give:
+
+```http
+HTTP/1.1 404 Not Found
+{ "message": "No released revision available." }
+```
+
+An entry whose only Revisions are `deprecated` still resolves: RPA-TOOL is allowed to re-fetch what
+it already runs.
 
 ### `GET /scripts/{id}/revisions` · `GET /ai-models/{id}/revisions`
 
@@ -290,6 +310,8 @@ Just the `revisions` array above, unpaginated:
 ```json
 { "data": [ { "id": "…", "number": 4, "status": "released", "…": "…" } ] }
 ```
+
+A draft-only entry returns the same `404` as `show`.
 
 ---
 

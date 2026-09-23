@@ -27,10 +27,15 @@ class LookupController extends Controller
         );
     }
 
+    /**
+     * Every Machine Model, active or not. This is a filter list, and a catalogue
+     * entry may still be labelled with a Machine Model that has since been
+     * deactivated — dropping it here would hide that entry's filter. The
+     * `is_active` flag on the resource lets RPA-TOOL grey the row out instead.
+     */
     public function machineModels(Request $request): AnonymousResourceCollection
     {
         $query = MachineModel::query()
-            ->active()
             ->with('machineBrand')
             ->orderBy('name');
 
@@ -42,13 +47,16 @@ class LookupController extends Controller
 
     /**
      * Every Customer is visible to every Customer User — the label is a secondary
-     * filter, never an access wall (docs/adr/0001). Only the id and company name
-     * are exposed.
+     * filter, never an access wall (docs/adr/0001).
+     *
+     * Inactive Customers are included for the same reason as inactive Machine
+     * Models: an entry may still carry the label, and this is a filter list.
+     * `is_active` on the resource is how RPA-TOOL greys one out.
      */
     public function customers(): AnonymousResourceCollection
     {
         return CustomerResource::collection(
-            Customer::query()->active()->orderBy('company')->get()
+            Customer::query()->orderBy('company')->get()
         );
     }
 }

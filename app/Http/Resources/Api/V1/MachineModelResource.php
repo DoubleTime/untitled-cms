@@ -16,6 +16,9 @@ class MachineModelResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'slug' => $this->slug,
+            // Inactive Machine Models are listed — an entry may still be labelled
+            // with one — so the flag is what lets RPA-TOOL grey the row out.
+            'is_active' => (bool) $this->is_active,
             'brand' => $this->whenLoaded('machineBrand', fn () => [
                 'id' => $this->machineBrand->id,
                 'name' => $this->machineBrand->name,

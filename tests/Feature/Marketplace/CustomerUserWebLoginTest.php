@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Marketplace;
 
-use App\Http\Requests\Auth\LoginRequest;
 use App\Models\Customer;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Marketplace\CustomerUserGuard;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -49,7 +49,7 @@ class CustomerUserWebLoginTest extends TestCase
 
         $this->assertGuest();
         $response->assertSessionHasErrors([
-            'email' => LoginRequest::RPA_TOOL_ONLY_MESSAGE,
+            'email' => CustomerUserGuard::RPA_TOOL_ONLY_MESSAGE,
         ]);
     }
 
@@ -79,7 +79,7 @@ class CustomerUserWebLoginTest extends TestCase
 
         $this->assertGuest();
         $response->assertSessionHasErrors([
-            'email' => LoginRequest::RPA_TOOL_ONLY_MESSAGE,
+            'email' => CustomerUserGuard::RPA_TOOL_ONLY_MESSAGE,
         ]);
     }
 

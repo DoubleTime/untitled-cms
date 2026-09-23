@@ -1,12 +1,11 @@
 <?php
 
-namespace App\Support;
+namespace App\Services\Marketplace;
 
-use App\Models\AiModel;
 use App\Models\Download;
-use App\Models\Script;
 use App\Models\UnysisBox;
 use App\Models\User;
+use App\Support\CatalogueEntryType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
@@ -19,7 +18,8 @@ use Illuminate\Http\Request;
  */
 class DownloadQuery
 {
-    public const ENTRY_TYPES = ['script', 'ai_model'];
+    /** @var array<int, string> The morph aliases a filter may name. */
+    public const ENTRY_TYPES = CatalogueEntryType::ALL;
 
     /**
      * Normalise the query string into the filter array the pages echo back.
@@ -80,22 +80,25 @@ class DownloadQuery
     {
         $like = '%'.str_replace(['%', '_'], ['\%', '\_'], $term).'%';
 
-        $scriptIds = Script::withTrashed()->where('name', 'like', $like)->pluck('id')->all();
-        $aiModelIds = AiModel::withTrashed()->where('name', 'like', $like)->pluck('id')->all();
+        $idsByAlias = [];
 
-        return $query->where(function (Builder $inner) use ($scriptIds, $aiModelIds) {
+        foreach (CatalogueEntryType::ALL as $alias) {
+            $model = CatalogueEntryType::modelClass($alias);
+
+            $idsByAlias[$alias] = $model::withTrashed()->where('name', 'like', $like)->pluck('id')->all();
+        }
+
+        return $query->where(function (Builder $inner) use ($idsByAlias) {
             $inner->whereRaw('1 = 0');
 
-            if ($scriptIds !== []) {
-                $inner->orWhere(fn (Builder $q) => $q
-                    ->where('downloads.revisable_type', 'script')
-                    ->whereIn('downloads.revisable_id', $scriptIds));
-            }
+            foreach ($idsByAlias as $alias => $ids) {
+                if ($ids === []) {
+                    continue;
+                }
 
-            if ($aiModelIds !== []) {
                 $inner->orWhere(fn (Builder $q) => $q
-                    ->where('downloads.revisable_type', 'ai_model')
-                    ->whereIn('downloads.revisable_id', $aiModelIds));
+                    ->where('downloads.revisable_type', $alias)
+                    ->whereIn('downloads.revisable_id', $ids));
             }
         });
     }

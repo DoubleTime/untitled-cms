@@ -34,7 +34,7 @@ export default function Show({
     const { canEdit, canUpload, canRelease, canHardDelete } = usePage<PageProps>().props;
     const [uploadOpen, setUploadOpen] = useState(false);
 
-    const cover = script.images?.find((image) => image.vault_file)?.vault_file ?? null;
+    const previewImage = script.images?.find((image) => image.vault_file)?.vault_file ?? null;
     const latestReleased = revisions.find((revision) => revision.status === 'released');
 
     return (
@@ -44,10 +44,10 @@ export default function Show({
             <div className="flex flex-col gap-6">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div className="flex gap-4">
-                        {cover ? (
+                        {previewImage ? (
                             <img
-                                src={cover.url}
-                                alt={cover.original_name}
+                                src={previewImage.url}
+                                alt={previewImage.original_name}
                                 className="h-24 w-40 shrink-0 rounded-md border object-cover"
                             />
                         ) : (

@@ -30,6 +30,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         ->middleware('throttle:rpa-login')
         ->name('login');
 
+    // Revoking your own token needs nothing but a valid token: a box that has been
+    // blocked, a deactivated Customer User and a deactivated Customer must all still
+    // be able to log out. Everything else sits behind the `unysis-box` gate below.
+    Route::post('logout', [AuthController::class, 'logout'])
+        ->middleware(['auth:sanctum', 'throttle:rpa'])
+        ->name('logout');
+
     Route::middleware(['auth:sanctum', 'unysis-box'])->group(function () {
         Route::middleware('throttle:rpa-download')->group(function () {
             Route::get('scripts/{entry}/download', [ScriptController::class, 'download'])
@@ -39,7 +46,6 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         });
 
         Route::middleware('throttle:rpa')->group(function () {
-            Route::post('logout', [AuthController::class, 'logout'])->name('logout');
             Route::get('me', [AuthController::class, 'me'])->name('me');
 
             Route::get('machine-brands', [LookupController::class, 'machineBrands'])->name('machine-brands');

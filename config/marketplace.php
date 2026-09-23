@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\CatalogueEntryType;
+
 return [
 
     // Private disk holding Revision files. Not the Vault: Revision files are .h5
@@ -11,10 +13,12 @@ return [
     // Upload cap for a Revision file, in kilobytes. Default 1 GB.
     'max_upload_kb' => env('MARKETPLACE_MAX_UPLOAD_KB', 1048576),
 
-    // Allowed extensions per catalogue entry type.
+    // Allowed extensions per catalogue entry type. The keys are the morph aliases
+    // that `revisable_type` holds, so they come from CatalogueEntryType rather than
+    // being spelled out again here.
     'allowed_extensions' => [
-        'ai_model' => ['h5'],
-        'script' => ['zip'],
+        CatalogueEntryType::AI_MODEL => ['h5'],
+        CatalogueEntryType::SCRIPT => ['zip'],
     ],
 
     // Lifetime of a Sanctum token issued to an UNYSIS Box, in days.

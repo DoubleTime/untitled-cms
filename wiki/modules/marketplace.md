@@ -2,7 +2,7 @@
 
 > Catalogue of AI Models and Scripts that run on UNYSIS Boxes, fetched by RPA-TOOL
 
-Last updated: 2026-09-23 (Phase 6)
+Last updated: 2026-09-23
 
 Vocabulary is fixed in [`CONTEXT.md`](../../CONTEXT.md) — use those terms verbatim in code, UI copy and docs.
 The implementation plan is [`docs/marketplace-plan.md`](../../docs/marketplace-plan.md); decisions are in [`docs/adr/`](../../docs/adr).
@@ -206,13 +206,15 @@ flashes the count revoked.
 Per docs/adr/0002 a Customer User reaches the catalogue only through RPA-TOOL and must never hold a
 web session.
 
-`App\Http\Requests\Auth\LoginRequest::isRpaToolOnly(User)` is the single test: true when the user
-`isCustomerUser()` (has a `customer_id`), **or** holds the `customer` role and no role granting
-backend access.
+`App\Services\Marketplace\CustomerUserGuard::isRpaToolOnly(User)` is the single test: true when the
+user `isCustomerUser()` (has a `customer_id`), **or** holds the `customer` role and no role granting
+backend access. It used to be a static method on the web `LoginRequest`, which made the API login and
+the API middleware import a web form request to ask a domain question; the guard (and its
+`RPA_TOOL_ONLY_MESSAGE`) is what all four callers use now.
 
 - **Password login** — `LoginRequest::authenticate()` calls `rejectCustomerUser()` after the
   credential check succeeds: it logs the session straight back out, invalidates it, regenerates the
-  CSRF token, and throws a `ValidationException` on `email` with `LoginRequest::RPA_TOOL_ONLY_MESSAGE`
+  CSRF token, and throws a `ValidationException` on `email` with `CustomerUserGuard::RPA_TOOL_ONLY_MESSAGE`
   ("This account can only be used from RPA-TOOL."). A wrong password still fails first with the
   ordinary `auth.failed`, so nothing extra leaks either way.
 - **Socialite** — `SocialAuthController::callback()` applies the same check twice: once on the user
@@ -244,8 +246,11 @@ backend access.
 
 Every failure is a `ValidationException` on the `file` key, so the Inertia form shows it inline.
 
-Numbering is `max(number) + 1` **per revisable**, taken inside a `DB::transaction`; a unique-index clash
-(concurrent upload) is retried once. The file is stored on `config('marketplace.disk')` at
+Numbering is `max(number) + 1` **per revisable**, taken inside a `DB::transaction`. A unique-index clash
+on (`revisable_type`, `revisable_id`, `number`) — a concurrent upload — is retried once, **and only that
+clash is**: `isUniqueViolation()` reads `errorInfo[0]` and accepts SQLSTATE `23505` (PostgreSQL) or
+`23000` (SQLite/MySQL); every other `QueryException` is rethrown immediately rather than silently
+attempted a second time. The file is stored on `config('marketplace.disk')` at
 `{morph alias}/{revisable id}/{number}.{ext}`, and the row records `sha256` (`hash_file`),
 `original_filename`, `size_bytes`, `mime`, `uploaded_by` and status `draft`.
 
@@ -325,6 +330,22 @@ in kilobytes. PHP discards a body larger than `post_max_size` **before** validat
 | `admin.marketplace.scripts.revisions.destroy` | `DELETE .../{revision}` | `scripts.hard_delete` |
 | `admin.marketplace.ai-models.*` | the same set, minus images | `ai_models.*` |
 
+**One abstract controller.** `App\Http\Controllers\Marketplace\CatalogueAdminController` holds
+everything the two admins do identically: the Revision actions (`storeRevisionFor`,
+`releaseRevisionFor`, `deprecateRevisionFor`, `downloadRevisionFor`, `destroyRevisionFor`),
+`restoreEntry`, `forceDestroyEntry`, `assertBelongsTo`, `revisionPayload`, `downloadPayload`,
+`downloadStats` (which now just calls `DownloadService::statsFor`), `machineModelOptions` and
+`uniqueSlug`. Subclasses supply `modelClass()`, `entryLabel()` ("Script" / "AI Model", which is what
+the flash and activity-log wording is built from), `routePrefix()`, `pagePrefix()` and
+`slugFallback()`, and may override `beforeForceDelete()` — Scripts use it to drop their Preview Image
+links. `ScriptController` keeps CRUD plus `syncImages`; `AiModelController` keeps CRUD plus the
+inference metadata.
+
+Implicit route model binding matches a method's **parameter name** against the route parameter, so
+the public actions are declared on the concrete controller with the concrete type (`Script $script`,
+`AiModel $aiModel`) and delegate in one line — the same arrangement `Api\V1\CatalogueController`
+uses for `{entry}`.
+
 `ScriptPolicy` and `AiModelPolicy` add `upload`, `release` and `hardDelete` on top of the usual
 five and are registered in `AppServiceProvider::boot()`. Routes that take a soft-deleted entry
 (`restore`, `force`) are declared `->withTrashed()`. A Revision that does not belong to the entry in the
@@ -338,7 +359,7 @@ the only released one — the flash then warns how many recorded Downloads refer
 
 **Preview Images.** `syncImages` takes an ordered `vault_file_ids[]`, validated to exist in `vault_files`
 and to have an `image/*` mime, and replaces the `script_images` rows with a fresh `sort_order`.
-The first image is the cover. The picker is the global Vault picker
+The first image is the one the Script is shown by. The picker is the global Vault picker
 (`useVaultPicker` -> `Components/Vault/VaultPicker.tsx`); ordering is drag-and-drop with `@dnd-kit`.
 AI Models have no Preview Images.
 
@@ -377,11 +398,11 @@ every later request finds its UNYSIS Box, and why download attribution can never
 | Method | Path | Notes |
 |---|---|---|
 | POST | `/login` | email, password, motherboard_uuid, box_name? -> token + user + customer + unysis_box |
-| POST | `/logout` | deletes the current token, 204 |
+| POST | `/logout` | deletes the current token, 204. **Outside the `unysis-box` gate** |
 | GET | `/me` | identity payload + `token_expires_at` |
 | GET | `/machine-brands` | id, name, slug |
-| GET | `/machine-models?brand=` | active only, with brand |
-| GET | `/customers` | id + code + company, **all** active Customers (docs/adr/0001) |
+| GET | `/machine-models?brand=` | **all** Machine Models, with brand and `is_active` |
+| GET | `/customers` | id + code + company + `is_active`, **all** Customers (docs/adr/0001) |
 | GET | `/scripts?machine_model=&brand=&customer=&q=&per_page=&page=` | paginated; only entries with a released Revision |
 | GET | `/scripts/{id}` | detail + images + released/deprecated Revisions |
 | GET | `/scripts/{id}/revisions` | the same Revision array |
@@ -392,13 +413,16 @@ every later request finds its UNYSIS Box, and why download attribution can never
 ### Who may sign in
 
 `AuthController::login` is the mirror image of the web login: the web refuses Customer Users, the API
-refuses everyone else. A caller must pass `LoginRequest::isRpaToolOnly()`, have a `customer_id`,
+refuses everyone else. A caller must pass `CustomerUserGuard::isRpaToolOnly()`, have a `customer_id`,
 belong to an **active** Customer, and be `is_active` itself. A wrong password and an unknown email
 both return the same 422 `These credentials do not match our records.`
 
 ### ResolveUnysisBox middleware
 
-Alias `unysis-box`, applied after `auth:sanctum` on every authenticated API route. It re-runs the whole
+Alias `unysis-box`, applied after `auth:sanctum` on every authenticated API route **except
+`POST /logout`**. Revoking your own token must not depend on the gate that may be the very reason you
+are logging out: a blocked box, a deactivated Customer User and a deactivated Customer can all still
+hand their token back (and get `403` from everything else, `GET /me` included). It re-runs the whole
 gate on **every** request — account active, still a Customer User, Customer active, box exists,
 belongs to this Customer, not blocked — then puts the box on the request as the `unysis_box` attribute
 and calls `UnysisBoxService::touch()`. That re-check is the point: blocking a box or deactivating a
@@ -416,8 +440,10 @@ several UNYSIS Boxes. Three named limiters are registered in `AppServiceProvider
 
 - **Draft Revisions.** Lists, detail, `revisions` and `download` all filter to released + deprecated.
   A `?revision=N` pointing at a draft is a 404.
-- **Entries with no released Revision.** Hidden from the list (`whereHas` released); the detail
-  endpoint still resolves them, with an empty `revisions` array.
+- **Entries with no released Revision.** Hidden from the list (`whereHas` released), and `show` /
+  `revisions` **404** with `CatalogueController::NO_RELEASED_REVISION` ("No released revision
+  available.") — the same message `download` uses, because there is equally nothing to give. A
+  deprecated-only entry still resolves: a box may re-fetch what it already runs.
 - **Soft-deleted entries.** Route model binding is not `withTrashed()`, so they 404.
 - `revisions_count` counts what the API exposes (released + deprecated), not drafts.
 
@@ -431,7 +457,12 @@ the eager-loaded, status-narrowed `revisions` relation rather than querying per 
 
 `CatalogueController` (abstract) holds index / show / revisions / download / check-update for both
 entry types; `ScriptController` and `AiModelController` are thin, and exist mainly so the
-route parameter `{entry}` has a concrete type hint for implicit binding.
+route parameter `{entry}` has a concrete type hint for implicit binding. The released+deprecated
+eager-load and its counts are defined once — `VISIBLE_STATUSES` plus two private builders — and applied
+to a Builder by `withVisibleRevisions()` or to a loaded model by `loadVisibleRevisions()`.
+
+The Script list row carries `preview_image_url` (the first Preview Image, or `null`). It was called
+`cover_image_url`; "cover" is on the `_Avoid_` list for Preview Image in `CONTEXT.md`.
 
 ## UNYSIS Boxes and Downloads admin (Phase 5)
 
@@ -509,7 +540,7 @@ the **filtered** set with four grouped queries, whatever the row count. `count(d
 a two-column `group by` both run unchanged on SQLite and PostgreSQL, so `App\Support\DateBucket` was
 not needed here.
 
-`App\Support\DownloadPresenter` shapes the rows for both this page and the UNYSIS Box Downloads tab. It
+`App\Services\Marketplace\DownloadPresenter` shapes the rows for both this page and the UNYSIS Box Downloads tab. It
 resolves entry names with one `withTrashed()` query per entry type per page, because a `morphTo` eager
 load would not reach a soft-deleted entry — and hard-deleting an entry deliberately keeps its Download
 rows, so a row whose entry is gone entirely still renders, unlinked.
@@ -539,9 +570,11 @@ rows, so a row whose entry is gone entirely still renders, unlinked.
 
 ### Dashboard
 
-`DashboardController` renders `resources/js/Pages/Dashboard.tsx` from live Marketplace figures. Every
-panel is gated on the `<resource>.view` permission of the page it summarises and is sent as `null`
-when the Team Member cannot see it — a panel is omitted from the props, not hidden in the browser.
+`DashboardController` renders `resources/js/Pages/Dashboard.tsx` from live Marketplace figures.
+Choosing which panels to send is all it does; every figure comes from
+`App\Services\Marketplace\DashboardStatsService`, one method per panel. Each panel is gated on the
+`<resource>.view` permission of the page it summarises and is sent as `null` when the Team Member
+cannot see it — a panel is omitted from the props, not hidden in the browser.
 
 - **Cards** — Scripts and AI Models as *released / total* (released = at least one Revision with
   `status = released`, found with one `whereIn` against a `revisions` sub-select per type); active
@@ -557,7 +590,7 @@ when the Team Member cannot see it — a panel is omitted from the props, not hi
 
 ### DownloadQuery — one filter builder
 
-`App\Support\DownloadQuery` holds the request parsing (`filters()`) and the query construction
+`App\Services\Marketplace\DownloadQuery` holds the request parsing (`filters()`) and the query construction
 (`build()`) that the log index, its CSV export and the Usage report all share. Unknown filter values
 are dropped rather than passed through, so a hand-edited URL never reaches the builder.
 
@@ -580,12 +613,17 @@ in its query string, so the file always matches what is on screen.
 `ReportController` serves `GET /admin/marketplace/reports/usage` (page
 `resources/js/Pages/Marketplace/Reports/Usage.tsx`, `downloads.view`), with a date range — presets 7 /
 30 / 90 / 365 / all, default the last 30 days, overridable with an explicit `from`/`to` pair — and an
-optional entry-type filter.
+optional entry-type filter. The controller is thin: every figure comes from
+`App\Services\Marketplace\UsageReportService`, which also owns the two CSV column lists and the row
+builder, so the file and the page can never disagree about what a column means.
 
 - **Totals strip** — downloads, Customers, UNYSIS Boxes and distinct entries, from one query.
 - **By Customer** — code, company, active boxes, boxes that downloaded in the range, downloads,
-  distinct entries downloaded, last download. Active boxes are a property of the Customer *today*, not
-  of the range, so they come from their own grouped query over `unysis_boxes`.
+  distinct entries downloaded, last download. **Only Customers with at least one Download in the
+  range are rows** — the report is about usage, and a table padded with every Customer at zero buries
+  the ones that matter — plus a single "No Customer (internal)" row, present only when the range
+  actually contains web downloads made without an UNYSIS Box. Active boxes are a property of the
+  Customer *today*, not of the range, so they come from their own grouped query over `unysis_boxes`.
 - **By entry** — type, name, Machine Model and Brand, downloads, distinct Customers, distinct boxes,
   and the highest released Revision number (one grouped query over `revisions`).
 
@@ -596,11 +634,11 @@ Attribution is the awkward part, as it is in the log: a Download carries no `cus
 report left-joins `unysis_boxes` and `users` and groups on
 `coalesce(unysis_boxes.customer_id, users.customer_id)`. Both joins are *left* joins — a Team Member's
 web download belongs to no Customer at all and must not vanish from the totals; those rows are
-reported under a "No Customer (internal)" row rather than dropped. `count(distinct ...)`, `||`
+reported under the single "No Customer (internal)" row rather than dropped. `count(distinct ...)`, `||`
 concatenation and `coalesce` are all in the SQLite/PostgreSQL common subset, so no dialect switch is
 needed beyond `DateBucket` on the dashboard chart.
 
-`App\Support\DownloadPresenter::entryNames()` now also resolves each entry's Machine Model and Machine
+`App\Services\Marketplace\DownloadPresenter::entryNames()` now also resolves each entry's Machine Model and Machine
 Brand, and accepts any row carrying `revisable_type`/`revisable_id` — Download rows, the report's
 grouped rows and the dashboard's Revision rows all pass through it unchanged.
 
@@ -626,7 +664,9 @@ gone with the CMS; the remaining groups are Platform (Dashboard), Marketplace an
   user belonging to another Customer 404s.
 - `CustomerUserWebLoginTest` — the web login refuses a Customer User and a customer-role-only user,
   while a Team Member and an ordinary user still log in.
-- `RevisionServiceTest` — `Storage::fake('marketplace')`; numbering increments per revisable and is
+- `RevisionServiceTest` — `Storage::fake('marketplace')`; the retry loop is driven with a partial
+  mock whose `nextNumber()` is scripted, so a unique-index collision is shown to be retried once and a
+  `QueryException` with a different SQLSTATE is shown **not** to be; numbering increments per revisable and is
   independent between two Scripts and between a Script and an AI Model; wrong extension, double
   extension, bad magic bytes and oversize are refused; the SHA-256 matches the bytes; every lifecycle
   transition allowed and refused; `ClamAvScanner` mocked to assert it is called only when
@@ -647,11 +687,14 @@ Factories exist for all nine models.
   box owned by another Customer, auto-registration as `pending` with `first_user_id`, reuse of an
   existing box without clobbering its label, and the 5/min login throttle.
 - `LogoutMeTest` — JSON 401 (with and without an `Accept` header), `me`, logout deleting only the
-  current token, expired token refused.
+  current token, expired token refused, and logout still succeeding (204, token gone) for a blocked
+  box, a deactivated user and a deactivated Customer while `me` 403s for all three.
 - `ResolveUnysisBoxMiddlewareTest` — blocking, deleting or reassigning the box, and deactivating the
   user or the Customer, all refuse the *next* request on a live token; the touch throttle.
-- `CatalogueReadTest` — lookups, entries without a released Revision hidden, drafts absent from
-  detail, filters, the `q` search, per-page cap, soft-deleted 404, AI Model metadata.
+- `CatalogueReadTest` — lookups (including inactive Machine Models and Customers still listed, with
+  `is_active`), entries without a released Revision hidden from the list and 404 from `show` /
+  `revisions`, a deprecated-only entry still resolving, drafts absent from detail, filters, the `q`
+  search, per-page cap, soft-deleted 404, AI Model metadata, `preview_image_url`.
 - `DownloadTest` — default latest released, explicit deprecated, draft/unknown 404, the Download row
   (`api` + user + box), headers, cross-entry Revision, the 20/min throttle.
 - `CheckUpdateTest` — every `current_status` branch.
@@ -677,7 +720,9 @@ Factories exist for all nine models.
   (entry, Machine Model and Brand, Revision number and status, Customer, box), and a filter narrowing
   the file.
 - `UsageReportTest` — 403 without the permission on both the page and the export, per-Customer
-  aggregates with two Customers and a box each, the date range excluding older rows, the entries
+  aggregates with two Customers and a box each, a Customer with no Downloads in the range absent from
+  the section, the "No Customer (internal)" row appearing only when an unattributed Download is in
+  range, the date range excluding older rows, the entries
   section (distinct Customers, distinct boxes, latest released Revision), the entry-type filter, and
   both section exports.
 

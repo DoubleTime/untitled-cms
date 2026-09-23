@@ -2,8 +2,10 @@
 
 namespace App\Services\Marketplace;
 
+use App\Models\AiModel;
 use App\Models\Download;
 use App\Models\Revision;
+use App\Models\Script;
 use App\Models\UnysisBox;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -36,6 +38,28 @@ class DownloadService
             'ip' => $request->ip(),
             'user_agent' => mb_substr((string) $request->userAgent(), 0, 1000),
         ]);
+    }
+
+    /**
+     * Download totals for one catalogue entry: every recorded fetch, and how many
+     * distinct UNYSIS Boxes are behind them — one box retrying is not the same as
+     * ten boxes installing. Two counts, one base query.
+     *
+     * @return array<string, int>
+     */
+    public function statsFor(Script|AiModel $entry): array
+    {
+        $base = Download::query()
+            ->where('revisable_type', $entry->getMorphClass())
+            ->where('revisable_id', $entry->getKey());
+
+        return [
+            'total' => (clone $base)->count(),
+            'unique_boxes' => (clone $base)
+                ->whereNotNull('unysis_box_id')
+                ->distinct()
+                ->count('unysis_box_id'),
+        ];
     }
 
     /**

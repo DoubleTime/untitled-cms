@@ -46,6 +46,11 @@ Business logic lives here, not in controllers.
 - **`Marketplace\DownloadService`** — Records a Download and streams the Revision file back.
 - **`Marketplace\UnysisBoxService`** — Resolves a box by motherboard UUID on API login: find-or-create, bump `last_seen_at`, refuse a blocked box.
 - **`Marketplace\UnysisBoxInstalledService`** — Derives the "installed revision" per box (the latest Download per box per entry); nothing is stored.
+- **`Marketplace\CustomerUserGuard`** — `isRpaToolOnly(User)` plus `RPA_TOOL_ONLY_MESSAGE`: the single test for "this account exists only for RPA-TOOL", used by the web login, Socialite, the API login and `ResolveUnysisBox`.
+- **`Marketplace\UsageReportService`** — The Usage report's filters, totals, by-Customer and by-entry aggregates, and CSV row builders. `byCustomer()` lists only Customers that downloaded in the range, plus one "No Customer (internal)" row when applicable.
+- **`Marketplace\DashboardStatsService`** — One method per dashboard panel; `DashboardController` only decides which of them the viewer may see.
+- **`Marketplace\DownloadQuery`** — The one filter builder for the Download log, shared by its index, the CSV export and the Usage report. Every column is table-qualified because the report joins `unysis_boxes` and `users` onto it.
+- **`Marketplace\DownloadPresenter`** — Shapes Download (and Revision, and grouped report) rows for the admin pages, resolving entry names with `withTrashed()` so a row whose entry is gone still renders.
 - **`VaultService`** — Media management. Entry point for all vault operations; delegates uploads to the pipe pipeline.
 - **`SettingsService`** — Key/value settings with cache. Always use this instead of querying `settings` directly.
 - **`ActivityLogger`** — Static `log()` call used throughout controllers to write to `activity_logs`. Fails silently to avoid disrupting user flow.
@@ -54,8 +59,7 @@ Business logic lives here, not in controllers.
 
 ### Support (`app/Support/`)
 
-- **`DownloadQuery`** — The one filter builder for the Download log, shared by its index, the CSV export and the Usage report. Every column is table-qualified because the report joins `unysis_boxes` and `users` onto it.
-- **`DownloadPresenter`** — Shapes Download (and Revision, and grouped report) rows for the admin pages, resolving entry names with `withTrashed()` so a row whose entry is gone still renders.
+- **`CatalogueEntryType`** — The two morph aliases (`script`, `ai_model`) as constants, plus `modelClass()`, `label()` and `fromModel()`. Use it rather than writing the alias literal or the alias-to-class `match` again.
 - **`DateBucket`** — The one SQL expression that differs between SQLite (tests) and PostgreSQL (production): bucketing a timestamp to `YYYY-MM-DD`.
 
 ### Pipeline Pattern (Vault Upload)

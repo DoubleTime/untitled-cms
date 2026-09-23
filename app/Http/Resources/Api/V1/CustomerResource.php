@@ -9,7 +9,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /**
  * Customers are exposed to RPA-TOOL for filtering only — the Customer label is a
  * secondary filter, never an access wall (docs/adr/0001), so every Customer User
- * sees every Customer. Nothing but the id, the code and the company is returned.
+ * sees every Customer. Nothing but the id, the code, the company and whether the
+ * Customer is still active is returned; an inactive Customer is listed so an entry
+ * labelled with it still has a filter, and RPA-TOOL greys the row out.
  *
  * @mixin Customer
  */
@@ -22,6 +24,7 @@ class CustomerResource extends JsonResource
             'id' => $this->id,
             'code' => $this->code,
             'company' => $this->company,
+            'is_active' => (bool) $this->is_active,
         ];
     }
 }

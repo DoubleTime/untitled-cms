@@ -77,7 +77,10 @@ class RevisionService
         $mime = $file->getMimeType() ?: 'application/octet-stream';
 
         // The number is max+1 per revisable, taken inside the transaction. A
-        // concurrent upload can still win the unique index, so retry once.
+        // concurrent upload can still win the unique index on
+        // (revisable_type, revisable_id, number), so *that* clash — and only that
+        // clash — is retried once. Any other database error is a real failure and
+        // is rethrown immediately rather than silently attempted a second time.
         for ($attempt = 1; ; $attempt++) {
             try {
                 return DB::transaction(function () use (
@@ -110,7 +113,7 @@ class RevisionService
                     return $revision;
                 });
             } catch (QueryException $e) {
-                if ($attempt >= 2) {
+                if ($attempt >= 2 || ! $this->isUniqueViolation($e)) {
                     throw $e;
                 }
             }
@@ -170,6 +173,19 @@ class RevisionService
     /**
      * The next Revision number for this entry — max + 1, per revisable.
      */
+    /**
+     * True when the query failed on a unique-constraint violation.
+     *
+     * The SQLSTATE in `errorInfo[0]` is the portable part: `23505` is PostgreSQL's
+     * unique_violation, `23000` is the generic integrity-constraint class that
+     * SQLite and MySQL report for the same thing. Anything else — a missing
+     * column, a deadlock, a lost connection — is not a numbering clash.
+     */
+    private function isUniqueViolation(QueryException $e): bool
+    {
+        return in_array((string) ($e->errorInfo[0] ?? ''), ['23000', '23505'], true);
+    }
+
     public function nextNumber(Script|AiModel $revisable): int
     {
         $max = Revision::query()

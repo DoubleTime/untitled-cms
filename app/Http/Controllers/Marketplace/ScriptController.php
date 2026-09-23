@@ -2,40 +2,62 @@
 
 namespace App\Http\Controllers\Marketplace;
 
-use App\Exceptions\Marketplace\InvalidRevisionTransition;
-use App\Http\Controllers\Controller;
 use App\Http\Requests\Marketplace\StoreRevisionRequest;
 use App\Http\Requests\Marketplace\StoreScriptRequest;
 use App\Http\Requests\Marketplace\SyncScriptImagesRequest;
 use App\Http\Requests\Marketplace\UpdateScriptRequest;
+use App\Models\AiModel;
 use App\Models\Customer;
-use App\Models\Download;
-use App\Models\MachineModel;
 use App\Models\Revision;
 use App\Models\Script;
 use App\Models\ScriptImage;
 use App\Services\ActivityLogger;
-use App\Services\Marketplace\DownloadService;
-use App\Services\Marketplace\RevisionService;
+use App\Support\CatalogueEntryType;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 /**
- * Scripts admin — CRUD, Preview Images and Revisions.
+ * Scripts admin — CRUD and Preview Images.
  *
- * The AI Models admin (AiModelController) is deliberately the same shape; the
- * two entry types stay separate in the UI and the API even though they share
- * the Revision/Download implementation.
+ * Everything the two catalogue entry types do identically — the Revision
+ * lifecycle, hard delete, restore and the shared payload builders — lives in
+ * CatalogueAdminController. What is left here is the Script-specific half, plus
+ * the thin typed overrides that let implicit route model binding resolve
+ * `{script}` and `{revision}`.
  */
-class ScriptController extends Controller
+class ScriptController extends CatalogueAdminController
 {
-    public function __construct(
-        private RevisionService $revisions,
-        private DownloadService $downloads,
-    ) {}
+    protected function modelClass(): string
+    {
+        return Script::class;
+    }
+
+    protected function entryLabel(): string
+    {
+        return 'Script';
+    }
+
+    protected function routePrefix(): string
+    {
+        return 'admin.marketplace.scripts.';
+    }
+
+    protected function pagePrefix(): string
+    {
+        return 'Marketplace/Scripts';
+    }
+
+    protected function slugFallback(): string
+    {
+        return CatalogueEntryType::SCRIPT;
+    }
+
+    /** Preview Image links go with the Script when it is hard deleted. */
+    protected function beforeForceDelete(Script|AiModel $entry): void
+    {
+        $entry->images()->delete();
+    }
 
     public function index(Request $request)
     {
@@ -63,7 +85,7 @@ class ScriptController extends Controller
             $script->setRelation('revisions', collect());
         });
 
-        return Inertia::render('Marketplace/Scripts/Index', [
+        return Inertia::render($this->page('Index'), [
             'scripts' => $scripts,
             'machineModels' => $this->machineModelOptions(),
             'customers' => Customer::orderBy('company')->get(['id', 'company']),
@@ -79,7 +101,7 @@ class ScriptController extends Controller
     {
         Gate::authorize('create', Script::class);
 
-        return Inertia::render('Marketplace/Scripts/Create', [
+        return Inertia::render($this->page('Create'), [
             'machineModels' => $this->machineModelOptions(),
             'customers' => Customer::orderBy('company')->get(['id', 'company']),
         ]);
@@ -100,7 +122,7 @@ class ScriptController extends Controller
 
         ActivityLogger::log('create', "Created Script: {$script->name}", $script);
 
-        return redirect()->route('admin.marketplace.scripts.show', $script->id)
+        return redirect()->route($this->routeName('show'), $script->id)
             ->with('success', 'Script created successfully.');
     }
 
@@ -116,7 +138,7 @@ class ScriptController extends Controller
             'images.vaultFile',
         ]);
 
-        return Inertia::render('Marketplace/Scripts/Show', [
+        return Inertia::render($this->page('Show'), [
             'script' => $script,
             'revisions' => $this->revisionPayload($script),
             'downloads' => $this->downloadPayload($script),
@@ -135,7 +157,7 @@ class ScriptController extends Controller
     {
         Gate::authorize('update', $script);
 
-        return Inertia::render('Marketplace/Scripts/Edit', [
+        return Inertia::render($this->page('Edit'), [
             'script' => $script,
             'machineModels' => $this->machineModelOptions(),
             'customers' => Customer::orderBy('company')->get(['id', 'company']),
@@ -156,7 +178,7 @@ class ScriptController extends Controller
 
         ActivityLogger::log('update', "Updated Script: {$script->name}", $script);
 
-        return redirect()->route('admin.marketplace.scripts.show', $script->id)
+        return redirect()->route($this->routeName('show'), $script->id)
             ->with('success', 'Script updated successfully.');
     }
 
@@ -173,48 +195,13 @@ class ScriptController extends Controller
 
         ActivityLogger::log('delete', "Deleted Script: {$name}", $script);
 
-        return redirect()->route('admin.marketplace.scripts.index')
+        return redirect()->route($this->routeName('index'))
             ->with('success', 'Script deleted. It can still be restored.');
     }
 
-    public function restore(Script $script)
-    {
-        Gate::authorize('restore', $script);
-
-        $script->restore();
-
-        ActivityLogger::log('restore', "Restored Script: {$script->name}", $script);
-
-        return redirect()->route('admin.marketplace.scripts.index', ['deleted' => 1])
-            ->with('success', 'Script restored.');
-    }
-
     /**
-     * Hard delete — removes every Revision file, the Revision rows and the
-     * Preview Image links, then the entry itself. Download rows are kept.
-     */
-    public function forceDestroy(Script $script)
-    {
-        Gate::authorize('hardDelete', $script);
-
-        $name = $script->name;
-
-        foreach ($script->revisions()->get() as $revision) {
-            $this->revisions->deleteFile($revision);
-            $revision->delete();
-        }
-
-        $script->images()->delete();
-        $script->forceDelete();
-
-        ActivityLogger::log('hard_delete', "Permanently deleted Script: {$name}");
-
-        return redirect()->route('admin.marketplace.scripts.index')
-            ->with('success', 'Script permanently deleted. Download history was kept.');
-    }
-
-    /**
-     * Replace the ordered Preview Image list. The first entry is the cover.
+     * Replace the ordered Preview Image list. The first entry is the one the
+     * Script is shown by.
      */
     public function syncImages(SyncScriptImagesRequest $request, Script $script)
     {
@@ -232,192 +219,48 @@ class ScriptController extends Controller
 
         ActivityLogger::log('update', "Updated Preview Images for Script: {$script->name}", $script);
 
-        return redirect()->route('admin.marketplace.scripts.show', $script->id)
+        return redirect()->route($this->routeName('show'), $script->id)
             ->with('success', 'Preview Images updated.');
+    }
+
+    // ---------------------------------------------------------------------
+    // Typed overrides. Implicit route model binding matches on the parameter
+    // name, so `{script}` needs a `$script` parameter declared here; each one
+    // delegates straight to CatalogueAdminController.
+    // ---------------------------------------------------------------------
+
+    public function restore(Script $script)
+    {
+        return $this->restoreEntry($script);
+    }
+
+    public function forceDestroy(Script $script)
+    {
+        return $this->forceDestroyEntry($script);
     }
 
     public function storeRevision(StoreRevisionRequest $request, Script $script)
     {
-        $revision = $this->revisions->upload(
-            $script,
-            $request->file('file'),
-            (string) $request->validated('change_note'),
-            $request->user(),
-        );
-
-        ActivityLogger::log(
-            'upload',
-            "Uploaded Revision {$revision->number} of Script: {$script->name}",
-            $revision,
-        );
-
-        return redirect()->route('admin.marketplace.scripts.show', $script->id)
-            ->with('success', "Revision {$revision->number} uploaded as a draft.");
+        return $this->storeRevisionFor($request, $script);
     }
 
     public function releaseRevision(Request $request, Script $script, Revision $revision)
     {
-        Gate::authorize('release', $script);
-        $this->assertBelongsTo($script, $revision);
-
-        try {
-            $this->revisions->release($revision, $request->user());
-        } catch (InvalidRevisionTransition $e) {
-            return back()->with('error', $e->getMessage());
-        }
-
-        ActivityLogger::log(
-            'release',
-            "Released Revision {$revision->number} of Script: {$script->name}",
-            $revision,
-        );
-
-        return back()->with('success', "Revision {$revision->number} released.");
+        return $this->releaseRevisionFor($request, $script, $revision);
     }
 
     public function deprecateRevision(Request $request, Script $script, Revision $revision)
     {
-        Gate::authorize('release', $script);
-        $this->assertBelongsTo($script, $revision);
-
-        try {
-            $this->revisions->deprecate($revision, $request->user());
-        } catch (InvalidRevisionTransition $e) {
-            return back()->with('error', $e->getMessage());
-        }
-
-        ActivityLogger::log(
-            'deprecate',
-            "Deprecated Revision {$revision->number} of Script: {$script->name}",
-            $revision,
-        );
-
-        return back()->with('success', "Revision {$revision->number} deprecated.");
+        return $this->deprecateRevisionFor($request, $script, $revision);
     }
 
     public function downloadRevision(Request $request, Script $script, Revision $revision)
     {
-        Gate::authorize('view', $script);
-        $this->assertBelongsTo($script, $revision);
-
-        $this->downloads->record($revision, $request->user(), null, Download::SOURCE_WEB, $request);
-
-        return $this->downloads->stream($revision);
+        return $this->downloadRevisionFor($request, $script, $revision);
     }
 
-    /**
-     * Hard delete one Revision: the file and the row go, the Download rows that
-     * referenced it stay, and the flash says how many there were.
-     */
     public function destroyRevision(Script $script, Revision $revision)
     {
-        Gate::authorize('hardDelete', $script);
-        $this->assertBelongsTo($script, $revision);
-
-        $number = $revision->number;
-        $downloadCount = $revision->downloads()->count();
-
-        $this->revisions->deleteFile($revision);
-        $revision->delete();
-
-        ActivityLogger::log(
-            'hard_delete',
-            "Permanently deleted Revision {$number} of Script: {$script->name}",
-        );
-
-        $message = "Revision {$number} permanently deleted.";
-
-        if ($downloadCount > 0) {
-            return back()->with('error', $message." {$downloadCount} recorded Download(s) still reference it; the Download history was kept.");
-        }
-
-        return back()->with('success', $message);
-    }
-
-    private function assertBelongsTo(Script $script, Revision $revision): void
-    {
-        abort_unless(
-            $revision->revisable_type === $script->getMorphClass() && $revision->revisable_id === $script->getKey(),
-            404,
-        );
-    }
-
-    /**
-     * @return Collection<int, array<string, mixed>>
-     */
-    private function revisionPayload(Script $script)
-    {
-        return $script->revisions()
-            ->with(['uploader:id,name', 'releaser:id,name'])
-            ->withCount('downloads')
-            // How many distinct UNYSIS Boxes pulled this Revision, alongside the raw
-            // total: one box retrying is not the same as ten boxes installing.
-            ->addSelect(['unique_boxes_count' => Download::query()
-                ->selectRaw('count(distinct unysis_box_id)')
-                ->whereColumn('revision_id', 'revisions.id')])
-            ->get();
-    }
-
-    /**
-     * Totals for the header: every Download of this entry, and how many distinct
-     * UNYSIS Boxes are behind them.
-     *
-     * @return array<string, int>
-     */
-    private function downloadStats(Script $script): array
-    {
-        $base = Download::query()
-            ->where('revisable_type', $script->getMorphClass())
-            ->where('revisable_id', $script->getKey());
-
-        return [
-            'total' => (clone $base)->count(),
-            'unique_boxes' => (clone $base)->whereNotNull('unysis_box_id')->distinct()->count('unysis_box_id'),
-        ];
-    }
-
-    /**
-     * The latest 50 web Downloads for this entry.
-     */
-    private function downloadPayload(Script $script)
-    {
-        return Download::query()
-            ->where('revisable_type', $script->getMorphClass())
-            ->where('revisable_id', $script->getKey())
-            ->where('source', Download::SOURCE_WEB)
-            ->with(['user:id,name', 'revision:id,number'])
-            ->latest()
-            ->limit(50)
-            ->get();
-    }
-
-    /**
-     * Machine Models with their Machine Brand, for the grouped filter and the form select.
-     */
-    private function machineModelOptions()
-    {
-        return MachineModel::with('machineBrand:id,name')
-            ->orderBy('name')
-            ->get(['id', 'name', 'machine_brand_id']);
-    }
-
-    /**
-     * Slugs are derived from the name and kept unique within the Machine Model.
-     */
-    private function uniqueSlug(string $name, string $machineModelId, ?string $ignoreId = null): string
-    {
-        $base = Str::slug($name) ?: 'script-script';
-        $slug = $base;
-        $suffix = 2;
-
-        while (Script::withTrashed()
-            ->where('machine_model_id', $machineModelId)
-            ->where('slug', $slug)
-            ->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))
-            ->exists()) {
-            $slug = $base.'-'.$suffix++;
-        }
-
-        return $slug;
+        return $this->destroyRevisionFor($script, $revision);
     }
 }

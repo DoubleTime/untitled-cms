@@ -7,6 +7,7 @@ use App\Models\Download;
 use App\Models\Revision;
 use App\Models\Script;
 use App\Models\UnysisBox;
+use App\Support\CatalogueEntryType;
 use Illuminate\Support\Collection;
 
 /**
@@ -108,7 +109,7 @@ class UnysisBoxInstalledService
         $out = [];
 
         foreach ($this->idsByType($latest) as $type => $ids) {
-            $model = $this->modelFor($type);
+            $model = CatalogueEntryType::modelClass($type);
 
             if ($model === null) {
                 continue;
@@ -166,17 +167,5 @@ class UnysisBoxInstalledService
             ->groupBy(fn (Download $download) => $download->revisable_type)
             ->map(fn (Collection $group) => $group->pluck('revisable_id')->unique()->values()->all())
             ->all();
-    }
-
-    /**
-     * @return class-string<Script>|class-string<AiModel>|null
-     */
-    private function modelFor(string $type): ?string
-    {
-        return match ($type) {
-            'script', Script::class => Script::class,
-            'ai_model', AiModel::class => AiModel::class,
-            default => null,
-        };
     }
 }

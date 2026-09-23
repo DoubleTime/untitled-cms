@@ -7,10 +7,10 @@ use App\Exceptions\Marketplace\UnysisBoxBlocked;
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\ResolveUnysisBox;
 use App\Http\Requests\Api\V1\LoginRequest;
-use App\Http\Requests\Auth\LoginRequest as WebLoginRequest;
 use App\Models\UnysisBox;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\Marketplace\CustomerUserGuard;
 use App\Services\Marketplace\UnysisBoxService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -34,7 +34,10 @@ class AuthController extends Controller
 
     public const INACTIVE_MESSAGE = 'This account has been deactivated.';
 
-    public function __construct(private UnysisBoxService $boxes) {}
+    public function __construct(
+        private UnysisBoxService $boxes,
+        private CustomerUserGuard $customerUsers,
+    ) {}
 
     public function login(LoginRequest $request): JsonResponse
     {
@@ -56,7 +59,7 @@ class AuthController extends Controller
         // Customer has been deactivated is refused too.
         $customer = $user->customer;
 
-        if (! $user->isCustomerUser() || ! WebLoginRequest::isRpaToolOnly($user)
+        if (! $user->isCustomerUser() || ! $this->customerUsers->isRpaToolOnly($user)
             || $customer === null || ! $customer->is_active) {
             abort(403, ResolveUnysisBox::ACCOUNT_REFUSED);
         }

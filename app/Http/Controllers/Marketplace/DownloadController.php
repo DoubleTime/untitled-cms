@@ -7,8 +7,8 @@ use App\Models\Customer;
 use App\Models\Download;
 use App\Models\UnysisBox;
 use App\Models\User;
-use App\Support\DownloadPresenter;
-use App\Support\DownloadQuery;
+use App\Services\Marketplace\DownloadPresenter;
+use App\Services\Marketplace\DownloadQuery;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -22,8 +22,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * or the Revision they point at is hard deleted, so this is the durable record
  * of what left the Marketplace.
  *
- * The filter builder lives in App\Support\DownloadQuery so the index, the CSV
+ * The filter builder lives in App\Services\Marketplace\DownloadQuery so the index, the CSV
  * export and the Usage report all narrow the table identically.
+ *
+ * Both routes sit inside the `can:downloads.view` group in routes/web.php; that
+ * middleware is the permission check, and the controller does not repeat it.
  */
 class DownloadController extends Controller
 {
@@ -34,8 +37,6 @@ class DownloadController extends Controller
 
     public function index(Request $request)
     {
-        $this->authorizeView($request);
-
         $filters = DownloadQuery::filters($request);
 
         $downloads = DownloadQuery::build($filters)
@@ -73,8 +74,6 @@ class DownloadController extends Controller
      */
     public function export(Request $request): StreamedResponse
     {
-        $this->authorizeView($request);
-
         $filters = DownloadQuery::filters($request);
         $filename = 'downloads-'.now()->format('Y-m-d').'.csv';
 
@@ -144,11 +143,6 @@ class DownloadController extends Controller
             $download->user?->email,
             $download->ip,
         ];
-    }
-
-    private function authorizeView(Request $request): void
-    {
-        abort_unless($request->user()?->hasPermission('downloads.view'), 403);
     }
 
     /**

@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
-use App\Models\User;
+use App\Services\Marketplace\CustomerUserGuard;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -13,25 +13,6 @@ use Illuminate\Validation\ValidationException;
 
 class LoginRequest extends FormRequest
 {
-    /**
-     * Shown to a Customer User who tries the web login. Deliberately says nothing
-     * about whether the password was right.
-     */
-    public const RPA_TOOL_ONLY_MESSAGE = 'This account can only be used from RPA-TOOL.';
-
-    /**
-     * True when this account exists only for RPA-TOOL — it is linked to a Customer,
-     * or it carries the `customer` role and no role granting backend access.
-     */
-    public static function isRpaToolOnly(User $user): bool
-    {
-        if ($user->isCustomerUser()) {
-            return true;
-        }
-
-        return $user->hasRole('customer') && ! $user->canAccessBackend();
-    }
-
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -87,7 +68,7 @@ class LoginRequest extends FormRequest
     {
         $user = Auth::user();
 
-        if (! $user || ! static::isRpaToolOnly($user)) {
+        if (! $user || ! app(CustomerUserGuard::class)->isRpaToolOnly($user)) {
             return;
         }
 
@@ -96,7 +77,7 @@ class LoginRequest extends FormRequest
         $this->session()->regenerateToken();
 
         throw ValidationException::withMessages([
-            'email' => static::RPA_TOOL_ONLY_MESSAGE,
+            'email' => CustomerUserGuard::RPA_TOOL_ONLY_MESSAGE,
         ]);
     }
 

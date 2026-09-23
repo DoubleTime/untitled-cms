@@ -4,8 +4,8 @@ namespace App\Http\Middleware;
 
 use App\Exceptions\Marketplace\UnysisBoxBelongsToAnotherCustomer;
 use App\Exceptions\Marketplace\UnysisBoxBlocked;
-use App\Http\Requests\Auth\LoginRequest;
 use App\Models\UnysisBox;
+use App\Services\Marketplace\CustomerUserGuard;
 use App\Services\Marketplace\UnysisBoxService;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
@@ -34,7 +34,10 @@ class ResolveUnysisBox
 
     public const BOX_UNKNOWN = 'This UNYSIS Box is no longer registered. Sign in again.';
 
-    public function __construct(private UnysisBoxService $boxes) {}
+    public function __construct(
+        private UnysisBoxService $boxes,
+        private CustomerUserGuard $customerUsers,
+    ) {}
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -46,7 +49,7 @@ class ResolveUnysisBox
 
         // The account may have been deactivated, unlinked from its Customer or
         // promoted to a Team Member since the token was issued.
-        if (! $user->is_active || ! $user->isCustomerUser() || ! LoginRequest::isRpaToolOnly($user)) {
+        if (! $user->is_active || ! $user->isCustomerUser() || ! $this->customerUsers->isRpaToolOnly($user)) {
             abort(403, self::ACCOUNT_REFUSED);
         }
 

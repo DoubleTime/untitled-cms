@@ -1,10 +1,9 @@
 <?php
 
-namespace App\Support;
+namespace App\Services\Marketplace;
 
-use App\Models\AiModel;
 use App\Models\Download;
-use App\Models\Script;
+use App\Support\CatalogueEntryType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
@@ -38,11 +37,7 @@ class DownloadPresenter
             ->map(fn (Collection $group) => $group->pluck('revisable_id')->unique()->values()->all());
 
         foreach ($byType as $type => $ids) {
-            $model = match ($type) {
-                'script', Script::class => Script::class,
-                'ai_model', AiModel::class => AiModel::class,
-                default => null,
-            };
+            $model = CatalogueEntryType::modelClass($type);
 
             if ($model === null || $ids === []) {
                 continue;

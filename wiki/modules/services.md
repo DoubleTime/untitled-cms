@@ -38,14 +38,42 @@ Uploads and lifecycle for Revisions of a Script or an AI Model. Validates the ex
 (from `config/marketplace.php`, keyed by morph alias), refuses double extensions, enforces the size cap,
 verifies magic bytes (zip / HDF5), optionally scans with `ClamAvScanner`, numbers the Revision
 `max + 1` per revisable inside a transaction, stores it on the private `marketplace` disk and records the
-SHA-256. `release()` / `deprecate()` walk the one-way `draft -> released -> deprecated` lifecycle and
+SHA-256. A concurrent upload that wins the unique index on (`revisable_type`, `revisable_id`, `number`)
+is retried **once**, and only that clash is: `isUniqueViolation()` checks `errorInfo[0]` for SQLSTATE
+`23505` (PostgreSQL) or `23000` (SQLite/MySQL), and any other `QueryException` is rethrown at once
+rather than silently attempted a second time. `release()` / `deprecate()` walk the one-way `draft -> released -> deprecated` lifecycle and
 throw `App\Exceptions\Marketplace\InvalidRevisionTransition` otherwise; `deleteFile()` backs hard
 delete. See [modules/marketplace](marketplace.md).
 
 ### Marketplace\DownloadService
 `record()` writes one `downloads` row (source `web` from the admin, `api` from RPA-TOOL);
 `stream()` returns the file as a `StreamedResponse` under its original filename with
-`X-Checksum-SHA256` and `X-Revision-Number`. Download rows are never deleted.
+`X-Checksum-SHA256` and `X-Revision-Number`. `statsFor($entry)` is the header pair on a catalogue
+Show page — total Downloads and distinct UNYSIS Boxes — which used to be a private method duplicated
+in both admin controllers. Download rows are never deleted.
+
+### Marketplace\CustomerUserGuard
+`isRpaToolOnly(User)` — true when an account exists only for RPA-TOOL: it is linked to a Customer, or
+it holds the `customer` role and no role granting backend access. One predicate, four callers: the web
+login (`Auth\LoginRequest`), `SocialAuthController`, `Api\V1\AuthController` and the per-request
+re-check in `ResolveUnysisBox`. `RPA_TOOL_ONLY_MESSAGE` is a constant here too. The web login refuses
+these accounts and the API refuses everyone else, so the two rules are mirror images of one test
+(docs/adr/0002).
+
+### Marketplace\UsageReportService
+The Usage report's aggregation: `filters()` (date-range presets plus an optional entry type,
+normalised), `totals()`, `byCustomer()`, `byEntry()`, and `section()` / `csvRow()` for the two CSV
+exports. A Download carries no `customer_id`, so the base query left-joins `unysis_boxes` and `users`
+and groups on `coalesce(unysis_boxes.customer_id, users.customer_id)`. **`byCustomer()` returns only
+the Customers that downloaded in the range**, plus a single "No Customer (internal)" row when the
+range contains web downloads made without a box — a Customer with no activity is not a row.
+`active_boxes` is still a property of the Customer *today*, from its own grouped query.
+
+### Marketplace\DashboardStatsService
+One method per dashboard panel — `entryCard(morph alias)`, `customerCard()`, `boxCard()`,
+`downloadCard()`, `downloadsPerDay()`, `latestRevisions()`, `recentBoxes()` — so
+`DashboardController` only decides which of them the viewer's permissions allow. `downloadsPerDay()`
+is the one caller of `DateBucket`; gaps are filled in PHP so every day in the 30-day window has a point.
 
 ### Marketplace\UnysisBoxService
 Auto-registration and presence tracking for UNYSIS Boxes. `resolve()` finds or creates the box
@@ -62,25 +90,35 @@ Download of a catalogue entry by that box**, whatever the Revision's status is n
 keys and a window function would need two dialects — so it reads the box's own (bounded)
 Download log newest-first and keeps the first row per entry. Five queries regardless of size.
 
-### EmailWebhooks/*
-Provider adapters (Resend, Mailgun, SendGrid) that normalize inbound webhook events.
-See [modules/email](email.md).
-
-## Support classes (`app/Support/`)
-
-### DownloadQuery
+### Marketplace\DownloadQuery
 The **one** filter builder for the Download log — the log index, its CSV export and the Usage
 report all narrow the same table the same way. `filters()` normalises the query string (unknown
 values are dropped, never passed through) and the builder applies them. Every column in it is
 **table-qualified**, because the report joins `unysis_boxes` and `users` onto `downloads` and an
 unqualified column would be ambiguous.
 
-### DownloadPresenter
+### Marketplace\DownloadPresenter
 Shapes rows for the admin pages: `entryNames()` resolves each catalogue entry's name, Machine
 Model and Machine Brand with one `withTrashed()` query per entry type, keyed `"{morph alias}:{id}"`.
 A `morphTo` eager load would miss soft-deleted entries, and hard-deleted entries deliberately keep
 their Download rows, so a row whose entry is gone still renders. Any row carrying
 `revisable_type` / `revisable_id` works — Download rows, grouped report rows and Revision rows.
+
+### EmailWebhooks/*
+Provider adapters (Resend, Mailgun, SendGrid) that normalize inbound webhook events.
+See [modules/email](email.md).
+
+## Support classes (`app/Support/`)
+
+### CatalogueEntryType
+`final` class holding the two morph aliases as constants — `SCRIPT = 'script'`,
+`AI_MODEL = 'ai_model'`, `ALL` — plus `modelClass($alias)`, `label($alias)` and `fromModel($model)`.
+The same alias-to-class `match` used to be written out in `DownloadPresenter`, `DownloadQuery`,
+`UnysisBoxInstalledService` and the dashboard, and the aliases themselves were spelled as literals in
+`config/marketplace.php`, the `enforceMorphMap()` call and two form requests. All of them reference
+this class now. `modelClass()` accepts a fully qualified class name as well as an alias and returns
+`null` for anything unknown, so a `revisable_type` the application no longer has is skipped rather
+than fatal.
 
 ### DateBucket
 `expression($column)` returns the SQL that buckets a timestamp to `YYYY-MM-DD` —

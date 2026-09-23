@@ -31,7 +31,7 @@ class ScriptController extends CatalogueController
         return ScriptDetailResource::class;
     }
 
-    /** Preview Images come along so the list can carry a cover image URL. */
+    /** Preview Images come along so the list can carry a Preview Image URL. */
     protected function listRelations(): array
     {
         return ['machineModel.machineBrand', 'customer', 'images.vaultFile'];

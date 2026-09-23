@@ -58,6 +58,54 @@ class LogoutMeTest extends ApiTestCase
         $this->asToken($second)->getJson('/api/v1/me')->assertOk();
     }
 
+    /**
+     * Logout sits outside the `unysis-box` gate on purpose: a box that has been
+     * blocked since it signed in must still be able to hand its token back.
+     */
+    public function test_a_blocked_box_can_still_log_out_even_though_me_is_refused(): void
+    {
+        $user = $this->customerUser();
+        $token = $this->tokenFor($user);
+
+        UnysisBox::query()->where('motherboard_uuid', self::UUID)
+            ->update(['status' => UnysisBox::STATUS_BLOCKED]);
+
+        $this->asToken($token)->getJson('/api/v1/me')->assertStatus(403);
+
+        $this->asToken($token)->postJson('/api/v1/logout')->assertNoContent();
+
+        $this->assertSame(0, $user->tokens()->count());
+    }
+
+    public function test_a_deactivated_user_can_still_log_out_even_though_me_is_refused(): void
+    {
+        $user = $this->customerUser();
+        $token = $this->tokenFor($user);
+
+        $user->forceFill(['is_active' => false])->save();
+
+        $this->asToken($token)->getJson('/api/v1/me')->assertStatus(403);
+
+        $this->asToken($token)->postJson('/api/v1/logout')->assertNoContent();
+
+        $this->assertSame(0, $user->tokens()->count());
+    }
+
+    public function test_a_deactivated_customer_can_still_log_out_even_though_me_is_refused(): void
+    {
+        $customer = Customer::factory()->create();
+        $user = $this->customerUser($customer);
+        $token = $this->tokenFor($user);
+
+        $customer->forceFill(['is_active' => false])->save();
+
+        $this->asToken($token)->getJson('/api/v1/me')->assertStatus(403);
+
+        $this->asToken($token)->postJson('/api/v1/logout')->assertNoContent();
+
+        $this->assertSame(0, $user->tokens()->count());
+    }
+
     public function test_an_expired_token_is_refused(): void
     {
         $user = $this->customerUser();

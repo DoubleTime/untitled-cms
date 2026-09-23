@@ -26,6 +26,7 @@ use App\Services\EmailWebhooks\Contracts\WebhookProvider;
 use App\Services\EmailWebhooks\MailgunWebhookProvider;
 use App\Services\EmailWebhooks\ResendWebhookProvider;
 use App\Services\EmailWebhooks\SendGridWebhookProvider;
+use App\Support\CatalogueEntryType;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -78,8 +79,8 @@ class AppServiceProvider extends ServiceProvider
         // `user` is here because enforceMorphMap() makes the map exhaustive: Sanctum's
         // personal access tokens are a morphMany on User, so User needs an alias too.
         Relation::enforceMorphMap([
-            'ai_model' => AiModel::class,
-            'script' => Script::class,
+            CatalogueEntryType::AI_MODEL => AiModel::class,
+            CatalogueEntryType::SCRIPT => Script::class,
             'user' => User::class,
         ]);
 
