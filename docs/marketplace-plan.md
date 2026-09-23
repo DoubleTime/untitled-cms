@@ -1,6 +1,6 @@
 # Unysis Marketplace — Implementation Plan
 
-Vocabulary: [CONTEXT.md](../CONTEXT.md). Decisions: [docs/adr](adr/). Built on the existing Laravel 13 + Inertia boilerplate; the public CMS surface (pages, banners, menus, AI hub) is left in place for now and removed in a later stage.
+Vocabulary: [CONTEXT.md](../CONTEXT.md). Decisions: [docs/adr](adr/). Built on the existing Laravel 13 + Inertia boilerplate; the inherited public CMS surface (pages, banners, menus, redirects, the public site and the AI Hub) was removed in Phase 6.
 
 ## Data model
 
@@ -78,7 +78,22 @@ Every token carries the UNYSIS Box in its name; `me`/downloads resolve the box f
 3. **Catalogue admin** — Scripts + AI Models CRUD, `RevisionService`, upload/release/deprecate, gallery, soft/hard delete, web download logging. ✅ shipped
 4. **RPA-TOOL API** — Sanctum login, UNYSIS Box auto-register/block, all read + download endpoints, API resources, feature tests per endpoint including throttle + blocked-box cases. ✅ shipped
 5. **UNYSIS Boxes & Downloads admin** — box management, download log, counts, installed-revision view. ✅ shipped
-6. **CMS strip (deferred, decide later)** — remove pages/banners/menus/llms/AI hub if confirmed. ⬜ pending
+6. **CMS strip, rebrand, dashboard and reporting** — removed Pages, Banners, Menus, Redirects, the
+   public site (`/`, `/rss`, `/feed`, `/sitemap.md`, `/llms.txt`, `/llms-full.txt`, `/{slug}`), the AI
+   Hub and AI chat/actions, and everything that only existed to serve them (`SafeHttpClient`,
+   `HtmlSanitizer`, the `clean()` helper, the `ModerationCheck` vault pipe, TinyMCE, the
+   `ezyang/htmlpurifier`, `league/html-to-markdown` and `laravel/ai` packages). Renamed the app to
+   **Unysis Marketplace** (v1.0.0). Replaced the boilerplate dashboard with real Marketplace stats,
+   and added the Download CSV export and the Usage report. ✅ shipped
+
+## Future: public landing page
+
+`/` currently redirects — to the dashboard for a signed-in Team Member with backend access, otherwise
+to the login screen — and `routes/web.php` carries a comment saying so. If the Marketplace ever wants
+a public face (a product page, a contact form, RPA-TOOL download links), it replaces that redirect
+with a real controller and an Inertia page. Nothing else needs to move: the admin area is already
+behind its own prefix and middleware, and the removed CMS is not a prerequisite — a landing page would
+be a single static-ish page, not a content management system.
 
 ## Model selection for dispatch
 

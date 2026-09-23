@@ -272,7 +272,7 @@ export default function VaultPicker({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            {/* High Z-Index to override TinyMCE (usually ~1300) */}
+            {/* High z-index so the picker sits above any dialog that opened it */}
             <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0 z-2000">
                 <DialogHeader className="p-4 border-b">
                     <DialogTitle>Media Vault</DialogTitle>

@@ -466,3 +466,79 @@ permissions from `Role::availablePermissions()`; Pint clean; `npm run build` exi
 362 tests / 1221 assertions (run per directory — a full single-process run trips the 120s
 `max_execution_time` because every Inertia page render spends ~2s on a refused Inertia SSR connect
 to `127.0.0.1:13714`; this predates the rename).
+
+
+## [2026-09-23] update | Phase 6 — CMS strip, rebrand, dashboard, download reporting
+
+The inherited CMS boilerplate is gone; the Marketplace is now the whole application.
+
+**Removed.** Pages, Banners, Menus and Redirects — controllers, models, policies, form requests,
+Inertia pages, factories and tests — together with the public surface they served: `PublicController`,
+`FeedController` (`/rss`, `/feed`), `SitemapController` (`/sitemap.md`), `LlmsController`
+(`/llms.txt`, `/llms-full.txt`), the `/{slug}` catch-all, `PublicLayout` and `Pages/Public/{Home,Page}.tsx`.
+`Pages/Public/Unsubscribed.tsx` stayed — the email unsubscribe flow renders it. The
+`Accept: text/markdown` negotiation and the whole llms.txt story went with them.
+
+The AI Hub and AI chat/actions went too: `AiHubController`, `AiController`, `AiActionController`,
+`AiContextController`, `ChatSessionController`, `AiService`, `AiActionService`, `AiContextService`,
+`AiHttpClient`, the `AiHub` and `ChatSession` models, `AiHubPolicy`, `AiHubObserver`, `AiHubSeeder`,
+`Pages/AiHub/*`, every `Components/Ai/*`, the `aiChatEnabled` and `tinymce_api_key` shared props,
+`SaveAiImageRequest` + `VaultController@saveAiImage`, `GenerateMissingAltTextJob` +
+`VaultController@generateMissingAltText` + the `vault:generate-alt-text` command, and the AI image
+generation and AI alt-text UI in the Vault browser. `SafeHttpClient`, `HtmlSanitizer` and the global
+`clean()` helper had no callers once that code left, so they went with it, along with
+`config/purifier.php` and `config/openai.php`.
+
+**Schema.** Nothing is deployed yet, so the migrations were edited in place rather than given drop
+migrations: `2026_09_21_000002_create_content_tables.php` was deleted outright (`pages`, `banners`,
+`menus`, `redirects`, `chat_sessions`) and `ai_hubs` was cut out of the core file. Five migration
+files remain plus the Sanctum tokens table.
+
+**Vault pipeline.** `ModerationCheck` called `AiService::moderateImage`, so it was removed from
+`VaultService::upload()`. The pipeline is now `DetectDoubleExtension` → `ValidateMimeType` →
+`SanitizeImage` → `GenerateUuid` → `StoreMetadata`, with `SandboxedScan` still spliced in after
+`ValidateMimeType` when `vault.clamav_enabled`. The `vault_files.moderation_reason` column stays —
+`SandboxedScan` writes the ClamAV verdict into it.
+
+**Permissions.** `Role::availablePermissions()` lost `pages.*`, `banners.*`, `menus.*` and
+`ai-integrations.*` and now holds **42** strings. `RoleSeeder` was rewritten around the catalogue:
+`admin` (all 42), `editor` (catalogue + Vault), `author` (draft and upload, no release or delete),
+a new `viewer` (read-only, backend access) and `customer` (no permissions, no backend access). The
+dead `RolesAndPermissionsSeeder` was deleted, as were `ContentSeeder`, `MenuSeeder` and `AiHubSeeder`.
+
+**Rebrand.** "Untitled CMS" / "Unysis Library" → **Unysis Marketplace** across `.env`, `.env.example`,
+`config/app.php`, `composer.json`, the seeded `site_name`/`site_description`, and the sidebar header,
+which now reads the version from the new `config('app.version')` (`1.0.0`, matching `package.json`)
+through a new `appVersion` shared prop instead of a hardcoded `v0.2.0`.
+
+**Root route.** `/` redirects to `admin.dashboard` for a signed-in Team Member with backend access and
+to `login` for everyone else, with a comment noting a public landing page may replace it later.
+
+**Dashboard.** `DashboardController` and `Pages/Dashboard.tsx` were rewritten from mock data to real
+Marketplace figures: five permission-gated cards, a 30-day downloads chart on `DateBucket`, the last
+ten Revisions and the last ten UNYSIS Boxes by `last_seen_at`. A panel the Team Member cannot see is
+`null` in the props, not hidden in the browser.
+
+**Reporting.** `App\Support\DownloadQuery` now holds the one filter builder shared by the Download
+log, its new CSV export (`/admin/marketplace/downloads/export`, streamed and chunked) and the new
+Usage report (`/admin/marketplace/reports/usage`, plus a per-section export). The report attributes a
+Download to its Customer by left-joining `unysis_boxes` and `users` and grouping on
+`coalesce(...)`; every figure is grouped SQL in the SQLite/PostgreSQL common subset.
+`DownloadPresenter::entryNames()` gained Machine Model and Brand and now accepts any row carrying
+`revisable_type`/`revisable_id`.
+
+**Docs.** Rewrote `AGENTS.md` (project overview, service layer, middleware stack, shared props, route
+structure, key tables, frontend libraries, model-selection guidance; the AI-Native Endpoints section
+is gone), `README.md`, `wiki/overview.md`, `wiki/modules/services.md`,
+`wiki/architecture/{middleware,request-flow,stack,testing,datastore}.md`, `wiki/database/collections.md`,
+`wiki/frontend/ui-stack.md`, the anti-drift table in `wiki/SCHEMA.md`, and scoped fixes in
+`wiki/modules/{vault,permissions}.md`. Extended `wiki/modules/marketplace.md` with the dashboard,
+`DownloadQuery`, the CSV export and the Usage report. Deleted `wiki/modules/ai-hub.md` and
+`wiki/discoverability.md` (wholly about the old public product's search surface). Marked Phase 6
+shipped in `docs/marketplace-plan.md` and added a "Future: public landing page" note there.
+
+Verification: `migrate:fresh --seed --force` succeeds on the dev PostgreSQL; `Role::availablePermissions()`
+and the seeded admin role both count 42; every dashboard and report query was also executed against
+PostgreSQL directly, not just SQLite; Pint clean; `npm run build` exits 0; suite green at 347 tests /
+1316 assertions (down from 362 — the CMS tests went, `DashboardTest`, `DownloadExportTest` and
+`UsageReportTest` arrived). `route:list --except-vendor` fell from 203 to 158 routes.

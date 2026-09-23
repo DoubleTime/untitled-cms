@@ -2,7 +2,7 @@
 
 > Media manager: upload pipeline, configuration, and storage.
 
-Last updated: 2026-09-22
+Last updated: 2026-09-23
 
 ## Overview
 
@@ -19,9 +19,8 @@ the upload fails with an appropriate error.
 | 2 | `ValidateMimeType` | Checks MIME type against allowlist in `config/vault.php` |
 | * | `SandboxedScan` | Optional ClamAV antivirus daemon scanning (TCP stream INSTREAM mode; dynamically injected at pos 2 when enabled) |
 | 3 | `SanitizeImage` | Strips EXIF/metadata by re-encoding images with native GD (`imagecreatefrom*`) |
-| 4 | `ModerationCheck` | Optional AI content moderation check |
-| 5 | `GenerateUuid` | Assigns a UUID filename to prevent path traversal / collisions |
-| 6 | `StoreMetadata` | Persists file record to MongoDB `vault_files` collection |
+| 4 | `GenerateUuid` | Assigns a UUID filename to prevent path traversal / collisions |
+| 5 | `StoreMetadata` | Persists the file record to the `vault_files` table |
 
 *Note: `SandboxedScan` connects to a clamd daemon via TCP. By default, it fails open, but can be configured to fail closed using the `CLAMAV_FAIL_CLOSED` setting, blocking uploads when the scanner is offline.*
 
@@ -96,8 +95,6 @@ See [modules/permissions](permissions.md#vault-authorization-rules) for Vault po
 
 - `SanitizeImage` needs the PHP `gd` extension (with WebP support). Without it this stage fails.
   Check `image_washing` config if you're seeing unexpected errors.
-- `ModerationCheck` is an AI call — it adds latency and can fail if AI is
-  misconfigured. Investigate whether it short-circuits gracefully on failure.
 - ClamAV is off by default. Do not assume it runs in production unless explicitly enabled.
 
 ## See also

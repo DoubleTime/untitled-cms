@@ -13,7 +13,7 @@ class SettingSeeder extends Seeder
             // General
             [
                 'key' => 'site_name',
-                'value' => 'Untitled CMS',
+                'value' => 'Unysis Marketplace',
                 'group' => 'general',
                 'type' => 'text',
                 'label' => 'Site Name',
@@ -21,7 +21,7 @@ class SettingSeeder extends Seeder
             ],
             [
                 'key' => 'site_description',
-                'value' => 'AI-native content management — built for the age of agents, teams, and scale.',
+                'value' => 'Internal catalogue of the AI Models and Scripts that run on UNYSIS Boxes.',
                 'group' => 'general',
                 'type' => 'textarea',
                 'label' => 'Site Description',
@@ -39,14 +39,6 @@ class SettingSeeder extends Seeder
             ],
 
             // Integrations
-            [
-                'key' => 'tinymce_api_key',
-                'value' => 'no-api-key', // Default
-                'group' => 'integrations',
-                'type' => 'text',
-                'label' => 'TinyMCE API Key',
-                'is_public' => true,
-            ],
             [
                 'key' => 'social_login_google_enabled',
                 'value' => false,
@@ -113,26 +105,6 @@ class SettingSeeder extends Seeder
                 'type' => 'boolean',
                 'label' => 'Convert Uploads to WebP',
                 'description' => 'Automatically convert JPEG and PNG uploads to WebP for smaller file sizes. GIFs are not affected.',
-                'is_public' => false,
-            ],
-
-            // AI Features
-            [
-                'key' => 'vault.moderation_enabled',
-                'value' => false,
-                'group' => 'media',
-                'type' => 'boolean',
-                'label' => 'Enable AI Image Moderation',
-                'description' => 'Automatically moderate uploaded images using the active AI Hub.',
-                'is_public' => false,
-            ],
-            [
-                'key' => 'ai.chat_enabled',
-                'value' => true,
-                'group' => 'ai',
-                'type' => 'boolean',
-                'label' => 'Enable AI Chat Assistant',
-                'description' => 'Show the AI chat assistant button for all admin users. Requires an active AI Hub.',
                 'is_public' => false,
             ],
         ];

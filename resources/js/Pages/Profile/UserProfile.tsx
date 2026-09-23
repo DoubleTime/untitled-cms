@@ -1,4 +1,3 @@
-import PublicLayout from '@/Layouts/PublicLayout';
 import { PageProps } from '@/types';
 import { Head } from '@inertiajs/react';
 import DeleteUserForm from './Partials/DeleteUserForm';
@@ -11,7 +10,7 @@ export default function UserProfile({
     status,
 }: PageProps<{ mustVerifyEmail: boolean; status?: string }>) {
     return (
-        <PublicLayout>
+        <div className="min-h-screen bg-background">
             <Head title="My Profile" />
 
             <div className="container max-w-3xl mx-auto px-4 py-12">
@@ -45,6 +44,6 @@ export default function UserProfile({
                     </Card>
                 </div>
             </div>
-        </PublicLayout>
+        </div>
     );
 }

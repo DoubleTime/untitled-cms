@@ -4,7 +4,9 @@ Single source of truth for all AI coding agents (Codex, Claude Code, Gemini CLI,
 
 ## Project Overview
 
-**Untitled CMS** is an AI-native Content Management System built on Laravel 13 with PostgreSQL and a React + Inertia.js admin SPA. Public pages are served as HTML by default and as Markdown+YAML frontmatter when requested with `Accept: text/markdown` (for AI crawlers/agents).
+**Unysis Marketplace** is the internal catalogue where the UNYSIS team publishes the AI Models and Scripts that run on UNYSIS Boxes, and from which RPA-TOOL fetches them. It is built on Laravel 13 with PostgreSQL and a React + Inertia.js admin SPA, plus a token-authenticated REST API (`/api/v1`) for RPA-TOOL.
+
+There is no public content surface: `/` redirects signed-in Team Members to the dashboard and everyone else to the login screen. The vocabulary is fixed in [`CONTEXT.md`](CONTEXT.md) — use those terms verbatim in code, UI copy and docs.
 
 ## Project Structure & Module Organization
 
@@ -40,21 +42,26 @@ Browser → Laravel Route → Middleware Stack → Controller → Service/Model 
 
 Business logic lives here, not in controllers.
 
-- **`AiService`** — Multi-provider AI orchestration (OpenAI, Gemini, OpenRouter, Stability, etc.). Providers are configured at runtime via the AI Hub UI, not hardcoded. Provider HTTP uses `AiHttpClient`; untrusted URLs use `SafeHttpClient`.
-- **`AiActionService`** — Structured AI-driven CMS mutations (create/update pages and banners). Actions are validated against a whitelist, resolved server-side, and are revertible via `ActivityLog` before-state snapshots.
-- **`AiContextService`** — Aggregates project context (pages, settings) for AI prompts; caches to avoid redundant DB queries.
+- **`Marketplace\RevisionService`** — Uploads, releases and deprecates Revisions. Validates the extension per entry type, stores on the private `marketplace` disk, computes the SHA-256 and assigns the next per-entry number.
+- **`Marketplace\DownloadService`** — Records a Download and streams the Revision file back.
+- **`Marketplace\UnysisBoxService`** — Resolves a box by motherboard UUID on API login: find-or-create, bump `last_seen_at`, refuse a blocked box.
+- **`Marketplace\UnysisBoxInstalledService`** — Derives the "installed revision" per box (the latest Download per box per entry); nothing is stored.
 - **`VaultService`** — Media management. Entry point for all vault operations; delegates uploads to the pipe pipeline.
 - **`SettingsService`** — Key/value settings with cache. Always use this instead of querying `settings` directly.
 - **`ActivityLogger`** — Static `log()` call used throughout controllers to write to `activity_logs`. Fails silently to avoid disrupting user flow.
-- **`SafeHttpClient`** — SSRF-protected HTTP client for untrusted (user/AI-supplied) URLs. Provider APIs use `AiHttpClient` instead. Never call the `Http` facade directly from app code for these paths.
-- **`AiHttpClient`** — Thin client for hub-configured AI vendor endpoints (timeouts + logging).
-- **`HtmlSanitizer`** — HTMLPurifier wrapper; `clean($html, $profile)` uses named profiles from `config/purifier.php`.
+- **`ClamAvScanner`** — Wraps the ClamAV daemon for the vault's optional `SandboxedScan` pipe.
 - **`EmailWebhooks/`** — Per-provider inbound webhook handlers (Mailgun, Resend, SendGrid) behind a shared contract in `Contracts/`.
+
+### Support (`app/Support/`)
+
+- **`DownloadQuery`** — The one filter builder for the Download log, shared by its index, the CSV export and the Usage report. Every column is table-qualified because the report joins `unysis_boxes` and `users` onto it.
+- **`DownloadPresenter`** — Shapes Download (and Revision, and grouped report) rows for the admin pages, resolving entry names with `withTrashed()` so a row whose entry is gone still renders.
+- **`DateBucket`** — The one SQL expression that differs between SQLite (tests) and PostgreSQL (production): bucketing a timestamp to `YYYY-MM-DD`.
 
 ### Pipeline Pattern (Vault Upload)
 
 `VaultService` runs uploads through `app/Vault/Pipes/` in order:
-1. `DetectDoubleExtension` → 2. `ValidateMimeType` → 3. `SanitizeImage` → 4. `ModerationCheck` → 5. `GenerateUuid` → 6. `StoreMetadata`
+1. `DetectDoubleExtension` → 2. `ValidateMimeType` → 3. `SanitizeImage` → 4. `GenerateUuid` → 5. `StoreMetadata`
 
 When `vault.clamav_enabled` is true, `SandboxedScan` (ClamAV) is spliced in after `ValidateMimeType`; `vault.clamav_fail_closed` controls whether a scanner outage rejects the upload.
 
@@ -62,13 +69,13 @@ State is carried via `app/Vault/DTOs/VaultPipelinePayload.php`. Upload config is
 
 ### Permissions System
 
-Permissions are strings in `resource.action` format (e.g. `pages.edit`, `media.upload`). The canonical list is defined in `Role::availablePermissions()` in `app/Models/Role.php` — this is the single source of truth; do not hardcode counts or copies elsewhere.
+Permissions are strings in `resource.action` format (e.g. `scripts.edit`, `media.upload`). The canonical list is defined in `Role::availablePermissions()` in `app/Models/Role.php` — this is the single source of truth; do not hardcode counts or copies elsewhere.
 
 - **`User::hasPermission(string)`** / **`User::getCachedPermissions()`** — cached in Redis/cache for 60s per user
 - **`User::canAccessBackend()`** — separate cache key; gates the entire admin area (checks `backend_access` flag on roles)
 - **`HasRoles` trait** — only adds `hasRole(string $slug)` helper; everything else is on the `User` model
 - **Policy classes** in `app/Policies/` — one per resource type
-- **`CheckPermission` middleware** — the `can` alias points here (not Laravel's default). Usage: `->middleware('can:pages.edit')`
+- **`CheckPermission` middleware** — the `can` alias points here (not Laravel's default). Usage: `->middleware('can:scripts.edit')`
 - **`RequireAdminAccess` middleware** — aliased as `admin`; applied to all admin routes; checks `canAccessBackend()` and redirects to `/` on failure
 - Cache is busted automatically: `Role::saved` event busts all member caches; `User::syncRoles()` busts the affected user's cache
 
@@ -78,8 +85,8 @@ Registered in `bootstrap/app.php`:
 
 1. `HandleInertiaRequests` — shares props to all pages (see below)
 2. `AddLinkHeadersForPreloadedAssets` — preload `Link` headers for performance
-3. `CheckRedirects` — database-driven URL redirects (hits the database on every request — keep the `redirects` table indexed)
-4. `CheckMaintenanceMode` — custom maintenance mode; reads from `SettingsService` (cache lag possible)
+3. `CheckMaintenanceMode` — custom maintenance mode; reads from `SettingsService` (cache lag possible). Aborts 503 for everyone but the auth routes, the `admin`/`super-admin` roles and holders of `manage-settings`
+4. `VerifySessionVersion` — invalidates sessions when a user's `session_version` is bumped (the "log out all devices" path)
 
 Admin routes additionally apply: `auth`, `verified`, `RequireAdminAccess`.
 
@@ -87,14 +94,14 @@ Admin routes additionally apply: `auth`, `verified`, `RequireAdminAccess`.
 
 `HandleInertiaRequests` shares on every page load:
 ```
+appName                — config('app.name')
+appVersion             — config('app.version'), shown in the sidebar header
 auth.user              — subset of User: id, name, email, is_active
 auth.permissions       — string[] from getCachedPermissions()
 auth.canAccessBackend  — boolean
-appName                — config('app.name')
 settings               — public settings key/value (SettingsService::getPublicSettings)
-tinymce_api_key        — only for backend users; null otherwise
-aiChatEnabled          — boolean from settings
-menus                  — Menu::active()->get()->keyBy('slug'), cached 300s under `active_menus`
+passwordRulesString    — Password::defaults()->toPasswordRulesString()
+flash.success/error    — lazy props the frontend turns into toasts
 ```
 
 ### Frontend (`resources/js/`)
@@ -105,27 +112,21 @@ menus                  — Menu::active()->get()->keyBy('slug'), cached 300s und
 - **types/index.d.ts** — `PageProps<T>` generic; extend it for page-specific props
 - **`route()`** — Ziggy-generated typed route helper, available globally
 
-Key UI libraries: TanStack Table (data grids), @dnd-kit (drag-drop), Recharts (analytics charts), Zod (form validation), Sonner (toasts), TinyMCE (`Editor.tsx`) for rich content, `react-dropzone` for Vault uploads.
+Key UI libraries: TanStack Table (data grids), @dnd-kit (drag-drop), Recharts (dashboard and Usage report charts), Zod (form validation), Sonner (toasts), `react-dropzone` for Vault uploads.
 
 Inertia form pattern: use `useForm()` from `@inertiajs/react` — handles loading state, errors, and submission. No fetch calls or separate API layer.
 
-### AI-Native Endpoints (no auth)
-
-- `GET /llms.txt` — llmstxt.org standard index of published pages (plain text)
-- `GET /llms-full.txt` — full content of all published pages as Markdown; includes `x-llms-tokens` header
-- `GET /sitemap.md` — sitemap for AI agents
-- `GET /{slug}` with `Accept: text/markdown` — individual page as Markdown + YAML frontmatter
-
 ### Route Structure (`routes/web.php`)
 
-- **Public (no auth):** `/`, `/rss`, `/feed`, `/sitemap.md`, `/llms.txt`, `/llms-full.txt`, `/{slug}`
+- **Root:** `/` redirects to `admin.dashboard` for a signed-in Team Member with backend access, otherwise to `login`. A public landing page may replace this later.
 - **Public media:** `/media/{uuid}.{extension}` (and legacy `/media/{uuid}`) — `throttle:1000,1`; resolved by UUID only
+- **Other unauthenticated:** `POST /webhooks/email`, `GET /unsubscribe/{token}`, and the auth routes in `routes/auth.php`
 - **Profile:** `auth` only (no admin middleware)
-- **Admin:** `/admin` prefix, `auth` + `verified` + `admin` (`RequireAdminAccess`) — all resource controllers
+- **Admin:** `/admin` prefix, `auth` + `verified` + `admin` (`RequireAdminAccess`) — dashboard, users, roles, settings, activity log, email logs, the Vault, and everything under `/admin/marketplace`
+- **Marketplace reporting:** `/admin/marketplace/downloads`, `/downloads/export`, `/reports/usage` and `/reports/usage/export`, all behind `can:downloads.view`
+- **RPA-TOOL API:** `routes/api.php` under `/api/v1`, Sanctum tokens — see `docs/api/rpa-tool-v1.md`
 - **User batch actions:** `throttle:10,1`
-- **AI text generation:** `throttle:30,1`
-- **AI image generation:** `throttle:10,1`
-- **AI chat + actions:** `throttle:60,1`
+- **Revision uploads:** `throttle:30,1`
 
 ### RPA-TOOL API (`routes/api.php`, prefix `/api/v1`, names `api.v1.*`)
 
@@ -157,9 +158,9 @@ DB_USERNAME=postgres
 DB_PASSWORD=
 ```
 
-All models are plain Eloquent (`Illuminate\Database\Eloquent\Model`; `User` extends `Illuminate\Foundation\Auth\User`) with ULID string primary keys via the shared `App\Models\Concerns\HasUlidKey` trait. The schema lives in `database/migrations/`, grouped into five files by responsibility (core, content, vault, logs, framework). Reference columns (`author_id`, `user_id`, `folder_id`, etc.) carry indexes but no foreign-key constraints — deliberate, since the app was written against MongoDB's lack of referential integrity. See [architecture/datastore](wiki/architecture/datastore.md) for the full writeup.
+All models are plain Eloquent (`Illuminate\Database\Eloquent\Model`; `User` extends `Illuminate\Foundation\Auth\User`) with ULID string primary keys via the shared `App\Models\Concerns\HasUlidKey` trait. The schema lives in `database/migrations/`, grouped by responsibility (core, vault, logs, framework, marketplace, plus the Sanctum tokens table). Reference columns (`author_id`, `user_id`, `folder_id`, etc.) carry indexes but no foreign-key constraints — deliberate, since the app was written against MongoDB's lack of referential integrity. See [architecture/datastore](wiki/architecture/datastore.md) for the full writeup.
 
-Key tables: `users`, `roles`, `role_user`, `pages`, `banners`, `vault_files`, `vault_folders`, `activity_logs`, `ai_hubs`, `chat_sessions`, `menus`, `settings`, `redirects`, `email_logs`, `suppressed_emails`.
+Key tables: `users`, `roles`, `role_user`, `settings`, `vault_files`, `vault_folders`, `vault_folder_permissions`, `activity_logs`, `vault_audit_logs`, `email_logs`, `suppressed_emails`, `personal_access_tokens`, and the Marketplace set — `customers`, `machine_brands`, `machine_models`, `scripts`, `script_images`, `ai_models`, `revisions`, `unysis_boxes`, `downloads`.
 
 ### Marketplace
 
@@ -238,8 +239,8 @@ This applies to implementation work only. Answering questions, reading code, pla
 Pass `model` explicitly on every dispatch — never rely on the default.
 
 **Use `opus`** when any of these hold:
-- Touches the service layer (`app/Services/`), the vault pipe pipeline (`app/Vault/Pipes/`), permissions (`Role::availablePermissions()`, policies, `CheckPermission`), or middleware ordering in `bootstrap/app.php`
-- Security-relevant: `SafeHttpClient`/SSRF paths, `HtmlSanitizer` profiles, upload validation, auth or Socialite flows, email webhook handlers
+- Touches the service layer (`app/Services/`), the vault pipe pipeline (`app/Vault/Pipes/`), the shared query/report support in `app/Support/`, permissions (`Role::availablePermissions()`, policies, `CheckPermission`), or middleware ordering in `bootstrap/app.php`
+- Security-relevant: Revision upload validation, the private `marketplace` disk and download endpoints, Sanctum token issuing, auth or Socialite flows, email webhook handlers
 - Spans backend + frontend + migration together, or changes more than ~5 files
 - Database schema changes, or anything that must work on both SQLite (tests) and PostgreSQL (production)
 - Architecture is unsettled — the approach itself is part of the work

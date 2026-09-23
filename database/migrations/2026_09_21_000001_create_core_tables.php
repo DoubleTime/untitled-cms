@@ -58,22 +58,10 @@ return new class extends Migration
             $table->index('group');
         });
 
-        Schema::create('ai_hubs', function (Blueprint $table) {
-            $table->ulid('id')->primary();
-            $table->string('name');
-            $table->string('default_model')->nullable();
-            $table->string('image_model')->nullable();
-            $table->text('api_key')->nullable();   // encrypted cast: ciphertext exceeds plaintext
-            $table->boolean('is_active')->default(false);
-            $table->integer('monthly_quota')->nullable();
-            $table->integer('monthly_usage')->default(0);
-            $table->timestamps();
-        });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('ai_hubs');
         Schema::dropIfExists('settings');
         Schema::dropIfExists('role_user');
         Schema::dropIfExists('roles');

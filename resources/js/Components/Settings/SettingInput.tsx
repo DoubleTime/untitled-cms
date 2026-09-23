@@ -1,7 +1,6 @@
 import { Input } from "@/Components/ui/input";
-import { AiInput } from "@/Components/Ai/AiInput";
 import { Label } from "@/Components/ui/label";
-import { AiTextarea } from "@/Components/Ai/AiTextarea";
+import { Textarea } from "@/Components/ui/textarea";
 import { Switch } from "@/Components/ui/switch";
 import ImagePicker from "@/Components/ImagePicker";
 import { useEffect, useRef } from "react";
@@ -84,14 +83,11 @@ export default function SettingInput({ setting, onChange, onSave }: SettingInput
             )}
 
             {setting.type === 'text' && (
-                <AiInput
+                <Input
                     id={setting.key}
                     value={setting.value || ''}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange(e.target.value)}
-                    onGeneration={(text) => handleChange(text)}
+                    onChange={(e) => handleChange(e.target.value)}
                     className="max-w-xl"
-                    aiPromptLabel={`Generate ${setting.label}`}
-                    aiPromptPlaceholder={`e.g. Write a realistic value for ${setting.label}`}
                 />
             )}
 
@@ -106,14 +102,11 @@ export default function SettingInput({ setting, onChange, onSave }: SettingInput
             )}
 
             {setting.type === 'textarea' && (
-                <AiTextarea
+                <Textarea
                     id={setting.key}
                     value={setting.value || ''}
-                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleChange(e.target.value)}
-                    onGeneration={(text) => handleChange(text)}
+                    onChange={(e) => handleChange(e.target.value)}
                     className="min-h-[100px] max-w-xl"
-                    aiPromptLabel={`Generate ${setting.label}`}
-                    aiPromptPlaceholder={`e.g. Write a comprehensive text for ${setting.label}`}
                 />
             )}
 

@@ -60,20 +60,6 @@ class Role extends Model
     public static function availablePermissions(): array
     {
         return [
-            // Pages
-            'pages.view',
-            'pages.create',
-            'pages.edit',
-            'pages.delete',
-            'pages.publish',
-
-            // Banners
-            'banners.view',
-            'banners.create',
-            'banners.edit',
-            'banners.delete',
-            'banners.manage',
-
             // Media / Vault
             'media.view',
             'media.create',   // upload new files
@@ -93,16 +79,6 @@ class Role extends Model
             'roles.edit',
             'roles.delete',
             'roles.manage',
-
-            // Menus
-            'menus.view',
-            'menus.create',
-            'menus.edit',
-            'menus.delete',
-
-            // AI Integrations
-            'ai-integrations.view',
-            'ai-integrations.edit',
 
             // Email Logs
             'email_logs.view',

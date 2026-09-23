@@ -1,13 +1,12 @@
 # Wiki Index
 
-Content catalog for the untitled-cms wiki. Updated on every ingest.
+Content catalog for the Unysis Marketplace wiki. Updated on every ingest.
 
 ## Core
 
 | Page | Summary |
 |------|---------|
 | [overview](overview.md) | Project summary, capabilities, and key numbers |
-| [discoverability](discoverability.md) | Day-0 search baseline, verified keyword surface, naming risks |
 
 ## Architecture
 
@@ -39,7 +38,6 @@ Content catalog for the untitled-cms wiki. Updated on every ingest.
 | [modules/services](modules/services.md) | app/Services/* overview and when to use each |
 | [modules/vault](modules/vault.md) | Media manager: upload pipeline, config, storage |
 | [modules/permissions](modules/permissions.md) | Role-based access control, policy classes, caching |
-| [modules/ai-hub](modules/ai-hub.md) | AI provider config, usage tracking, integration patterns |
 | [modules/marketplace](modules/marketplace.md) | Unysis Marketplace: catalogue schema, revisions, permissions, storage, RPA-TOOL API |
 | [modules/email](modules/email.md) | Resend email pipeline, suppression, webhooks, unsubscribe flow |
 

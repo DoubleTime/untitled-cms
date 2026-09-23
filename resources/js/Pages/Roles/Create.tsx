@@ -1,7 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm } from '@inertiajs/react';
 import { Input } from '@/Components/ui/input';
-import { AiInput } from '@/Components/Ai/AiInput';
 import { Label } from '@/Components/ui/label';
 import { Checkbox } from '@/Components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
@@ -58,12 +57,11 @@ export default function Create({ auth, availablePermissions }: RoleCreateProps) 
                             <CardContent className="space-y-4">
                                 <div>
                                     <Label htmlFor="name">Role Name</Label>
-                                    <AiInput
+                                    <Input
                                         id="name"
                                         type="text"
                                         value={data.name}
                                         onChange={handleNameChange}
-                                        onGeneration={(text) => handleNameChange({ target: { value: text } } as any)}
                                         className="mt-1 block w-full"
                                         required
                                         autoFocus

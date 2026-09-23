@@ -1,7 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm } from '@inertiajs/react';
 import { Input } from '@/Components/ui/input';
-import { AiInput } from '@/Components/Ai/AiInput';
 import { Label } from '@/Components/ui/label';
 import { Switch } from '@/Components/ui/switch';
 import { Checkbox } from '@/Components/ui/checkbox';
@@ -147,12 +146,11 @@ export default function Edit({ auth, role, availablePermissions }: RoleEditProps
                             <CardContent className="space-y-4">
                                 <div>
                                     <Label htmlFor="name">Role Name</Label>
-                                    <AiInput
+                                    <Input
                                         id="name"
                                         type="text"
                                         value={data.name}
                                         onChange={handleNameChange}
-                                        onGeneration={(text) => handleNameChange({ target: { value: text } } as any)}
                                         className="mt-1 block w-full"
                                         required
                                         autoFocus

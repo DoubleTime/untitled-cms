@@ -32,7 +32,7 @@ wiki/
     services.md          ← app/Services/* overview
     vault.md             ← Vault upload pipeline
     permissions.md       ← role-based access control
-    ai-hub.md            ← AI provider config and patterns
+    marketplace.md       ← the catalogue: schema, revisions, API, reporting
 ```
 
 New pages go into the most fitting subfolder. When adding a page, also add it to `index.md`.
@@ -109,9 +109,10 @@ When documenting stack facts, **prefer code over README/wiki memory**:
 | Permission strings | `Role::availablePermissions()` in `app/Models/Role.php` |
 | Policy abilities | `app/Policies/*` |
 | Vault pipeline order | `VaultService::upload()` pipe list |
-| AI providers (SDK) | `config/ai.php` + active `AiHub` records |
-| Outbound HTTP rules | [modules/services](modules/services.md) two-tier policy; code in `SafeHttpClient` / `AiHttpClient` |
-| Rich text editor | `resources/js/Components/Editor.tsx` |
-| Public AI endpoints | `routes/web.php` (`llms.txt`, markdown Accept) |
+| Marketplace vocabulary | [`CONTEXT.md`](../CONTEXT.md) |
+| Revision upload rules | `config/marketplace.php` + `Marketplace\RevisionService` |
+| Download filters | `App\Support\DownloadQuery` |
+| SQL that differs by dialect | `App\Support\DateBucket` |
+| Routes and their permissions | `routes/web.php`, `routes/api.php` |
 
 If wiki and code disagree, **update the wiki** (or fix the code if the wiki was intentional).

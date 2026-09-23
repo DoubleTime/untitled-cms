@@ -2,9 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\AiHub;
-use App\Models\Menu;
-use App\Models\Page;
 use App\Models\Role;
 use App\Models\Setting;
 use App\Models\User;
@@ -29,9 +26,6 @@ class SeederTest extends TestCase
         $this->assertTrue(Role::query()->exists(), 'RoleSeeder produced no roles');
         $this->assertTrue(User::query()->exists(), 'AdminUserSeeder produced no users');
         $this->assertTrue(Setting::query()->exists(), 'SettingSeeder produced no settings');
-        $this->assertTrue(AiHub::query()->exists(), 'AiHubSeeder produced no hubs');
-        $this->assertTrue(Page::query()->exists(), 'ContentSeeder produced no pages');
-        $this->assertTrue(Menu::query()->exists(), 'MenuSeeder produced no menus');
     }
 
     public function test_seeded_setting_descriptions_persist(): void

@@ -1,43 +1,63 @@
 # Request Flow
 
-> How a request moves from browser to response.
+> How a request moves from browser (or RPA-TOOL) to response.
 
-Last updated: 2026-04-05
+Last updated: 2026-09-23
 
-## Flow
+## Admin flow (Inertia)
 
 ```
-Browser → Laravel Route → Controller → Service/Model → MongoDB
-                                    ↓
-                           Inertia Response → React Page Component
+Browser → Laravel Route → web middleware → Controller → Service/Model → PostgreSQL
+                                                     ↓
+                                    Inertia::render($page, $props) → React Page Component
 ```
 
 Inertia.js is the bridge: controllers return `Inertia::render('PageName', $props)`
 rather than JSON or HTML templates. Props flow directly into React components.
-There is **no client-side router** — navigation is server-driven.
+There is **no client-side router** — navigation is server-driven, and there is no
+separate frontend API layer (the Vault browser's JSON endpoints are the one exception,
+see [modules/vault](../modules/vault.md#api-contracts)).
 
 ## Inertia shared props
 
-`HandleInertiaRequests` middleware injects these on every page load:
-- `auth` — current user
-- `permissions` — current user's permission set (cached)
-- `menus` — navigation menu data
-- `settings` — site-wide settings key/value
+`HandleInertiaRequests` injects these on every page load:
+
+- `appName`, `appVersion` (`config('app.version')`)
+- `auth.user`, `auth.permissions` (cached permission strings), `auth.canAccessBackend`
+- `settings` — public settings key/value
+- `passwordRulesString`
+- `flash.success`, `flash.error`
 
 ## Route groups
 
-- **Public (no auth):** `/`, `/feed`, `/sitemap.md`, `/{slug}`
-- **Authenticated** (middleware: `auth`, `verified`): all admin routes
-- **AI endpoints:** rate-limited (30/min text, 10/min image)
+- **Public (no auth):** `/media/{uuid}.{extension}` (and the legacy `/media/{uuid}`),
+  `POST /webhooks/email`, `/unsubscribe/{token}`, plus the auth routes in `routes/auth.php`
+- **`/`** — a redirect, not a page: to `admin.dashboard` for an authenticated caller with
+  backend access, otherwise to `login`. A comment in `routes/web.php` notes that a public
+  landing page may replace this later.
+- **Profile:** `auth` only (no admin middleware)
+- **Admin:** `/admin` prefix, `auth` + `verified` + `admin` (`RequireAdminAccess`)
+- **API:** `/api/v1`, `auth:sanctum` + `unysis-box` + named throttles
 
-## Dual content format
+There is **no public content surface** — no page routes, no feeds, no `Accept`-based
+content negotiation. Everything a person sees is either an auth screen or the admin SPA.
 
-Public routes respond with HTML by default. When `Accept: text/markdown` is sent
-(AI crawlers/agents), they respond with Markdown + YAML frontmatter instead.
-This is the "AI-native" aspect of the CMS — no HTML parsing required for agents.
+## API flow (RPA-TOOL)
+
+```
+RPA-TOOL → /api/v1/... → auth:sanctum → ResolveUnysisBox → throttle:rpa* → Controller → PostgreSQL
+                                                                        ↓
+                                                        JSON, or a StreamedResponse for a download
+```
+
+The Sanctum token's *name* is the UNYSIS Box's motherboard UUID; `ResolveUnysisBox` turns it
+into the `unysis_box` request attribute, which the download endpoints read instead of trusting
+input. Exceptions render as JSON for anything under `api/*`. See
+[architecture/middleware](middleware.md) and [`docs/api/rpa-tool-v1.md`](../../docs/api/rpa-tool-v1.md).
 
 ## See also
 
 - [architecture/middleware](middleware.md) — middleware stack that wraps every request
 - [architecture/stack](stack.md) — technology choices
+- [modules/marketplace](../modules/marketplace.md) — catalogue and API detail
 - [frontend/ui-stack](../frontend/ui-stack.md) — what happens on the React side

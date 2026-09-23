@@ -36,6 +36,10 @@ class MaintenanceModeTest extends TestCase
         parent::tearDown();
     }
 
+    /**
+     * `/` is a redirect now, not a page, so "reachable" means the redirect happens
+     * and "blocked" means the middleware turns it into a 503 first.
+     */
     public function test_public_pages_return_503_when_maintenance_mode_is_enabled()
     {
         // Enable maintenance mode
@@ -70,8 +74,8 @@ class MaintenanceModeTest extends TestCase
 
         $response = $this->actingAs($admin)->get('/');
 
-        // Should be OK because they are an admin
-        $response->assertStatus(200);
+        // Should get through to the route because they are an admin
+        $response->assertRedirect(route('admin.dashboard'));
     }
 
     public function test_super_admin_can_access_pages_during_maintenance()
@@ -85,7 +89,7 @@ class MaintenanceModeTest extends TestCase
 
         $response = $this->actingAs($superAdmin)->get('/');
 
-        $response->assertStatus(200);
+        $response->assertRedirect(route('admin.dashboard'));
     }
 
     public function test_regular_user_cannot_access_pages_during_maintenance()
@@ -110,6 +114,6 @@ class MaintenanceModeTest extends TestCase
 
         $response = $this->get('/');
 
-        $response->assertStatus(200);
+        $response->assertRedirect(route('login'));
     }
 }

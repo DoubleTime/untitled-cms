@@ -2,14 +2,14 @@
 
 > Role-based access control with policy classes and per-user caching.
 
-Last updated: 2026-09-13
+Last updated: 2026-09-23
 
 ## Format
 
-Permissions are strings in `resource.action` format (e.g. `pages.edit`, `media.create`).
+Permissions are strings in `resource.action` format (e.g. `scripts.edit`, `media.create`).
 
 The canonical list is **`Role::availablePermissions()`** in `app/Models/Role.php`
-(**32** strings as of 2026-07-12). Keep Policy classes, seeders, and UI in sync with that list.
+(**42** strings as of 2026-09-23). Keep Policy classes, seeders, and UI in sync with that list.
 
 ## Components
 
@@ -44,13 +44,13 @@ covers the same check. Folder-scoped Vault rules stay on `VaultFolderPolicy` / `
 |---------|------|
 | `VaultFolderPolicy::create($parent)` | global `media.create` **and** (no parent, or `update` on parent) |
 | `VaultFilePolicy::create($folder)` | delegates to `VaultFolderPolicy::create` for the folder |
-| `VaultFilePolicy::updateAny` | class-level `media.edit` (e.g. generate missing alt text) |
+| `VaultFilePolicy::updateAny` | class-level `media.edit` (batch metadata updates) |
 | `VaultFilePolicy::forceDelete` | global `media.delete` (irreversible) |
 | `VaultFolderPolicy::forceDelete` | global `media.delete` **and** folder `delete` — purges the whole subtree |
 
 Batch file endpoints require `viewAny` (`media.view`), then check each file individually.
 `emptyTrash` purges only files the actor may `forceDelete`. Any endpoint that accepts
-`folder_id` (upload, save-ai-image, move) must authorize against the target folder.
+`folder_id` (upload, move) must authorize against the target folder.
 
 ## Caching
 

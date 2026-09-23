@@ -18,9 +18,6 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             AdminUserSeeder::class,
             SettingSeeder::class,
-            AiHubSeeder::class,
-            ContentSeeder::class,
-            MenuSeeder::class,
         ]);
     }
 }

@@ -31,13 +31,8 @@ export function useVaultBrowser() {
     const [isMoveOpen, setIsMoveOpen] = useState(false);
     const [moveTarget, setMoveTarget] = useState<string | null>(null);
 
-    const [isGeneratingAlt, setIsGeneratingAlt] = useState(false);
+    // Draft value of the alt-text box, so typing does not need a re-fetch.
     const [generatedAltText, setGeneratedAltText] = useState<string | null>(null);
-    const [isImageGenOpen, setIsImageGenOpen] = useState(false);
-    const [imageGenPrompt, setImageGenPrompt] = useState('');
-    const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-    const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
-    const [isSavingImage, setIsSavingImage] = useState(false);
 
     // Only the latest refresh may write state; earlier in-flight responses are dropped.
     const requestSeq = useRef(0);
@@ -120,24 +115,6 @@ export function useVaultBrowser() {
         refresh(currentFolder?.id || null);
     }, [refresh, currentFolder?.id]);
 
-    const handleGenerateAltText = async (fileUuid: string) => {
-        setIsGeneratingAlt(true);
-        setGeneratedAltText(null);
-        try {
-            const response = await axios.post(route('admin.ai.alt-text'), {
-                vault_file_uuid: fileUuid,
-            });
-            setGeneratedAltText(response.data.alt_text);
-            toast.success('Alt text generated!');
-        } catch (e: unknown) {
-            toast.error(
-                apiErrorMessage(e, 'Failed to generate alt text. Check your active AI Hub.'),
-            );
-        } finally {
-            setIsGeneratingAlt(false);
-        }
-    };
-
     const handleMove = async () => {
         if (!selectedFiles.length) return;
         try {
@@ -155,44 +132,6 @@ export function useVaultBrowser() {
             refresh(currentFolder?.id || null);
         } catch (e: unknown) {
             toast.error(apiErrorMessage(e, 'Move failed.'));
-        }
-    };
-
-    const handleGenerateImage = async () => {
-        if (!imageGenPrompt.trim()) return;
-        setIsGeneratingImage(true);
-        setGeneratedImageUrl(null);
-        try {
-            const genResponse = await axios.post(route('admin.ai.generate-image'), {
-                prompt: imageGenPrompt,
-            });
-            const imageData = genResponse.data.image_url;
-            setGeneratedImageUrl(imageData);
-            toast.success('Image generated — saving to Vault...');
-
-            setIsSavingImage(true);
-            const saveResponse = await axios.post(route('admin.vault.save-ai-image'), {
-                image: imageData,
-                folder_id: currentFolder?.id || null,
-                filename: `ai-${imageGenPrompt
-                    .trim()
-                    .slice(0, 40)
-                    .replace(/[^a-zA-Z0-9]/g, '-')}`,
-            });
-
-            toast.success(
-                `Saved to Vault: ${saveResponse.data.file?.original_name || 'ai-generated.png'}`,
-            );
-
-            setIsImageGenOpen(false);
-            setImageGenPrompt('');
-            setGeneratedImageUrl(null);
-            refresh(currentFolder?.id || null);
-        } catch (e: unknown) {
-            toast.error(apiErrorMessage(e, 'Generation or save failed.'));
-        } finally {
-            setIsGeneratingImage(false);
-            setIsSavingImage(false);
         }
     };
 
@@ -392,21 +331,10 @@ export function useVaultBrowser() {
         setIsMoveOpen,
         moveTarget,
         setMoveTarget,
-        isGeneratingAlt,
         generatedAltText,
         setGeneratedAltText,
-        isImageGenOpen,
-        setIsImageGenOpen,
-        imageGenPrompt,
-        setImageGenPrompt,
-        isGeneratingImage,
-        generatedImageUrl,
-        setGeneratedImageUrl,
-        isSavingImage,
         refresh,
-        handleGenerateAltText,
         handleMove,
-        handleGenerateImage,
         handleCreateFolder,
         handleDelete,
         handleRestore,

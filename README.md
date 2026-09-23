@@ -1,382 +1,179 @@
-# Untitled CMS
+# Unysis Marketplace
 
-**Untitled CMS** is a production-ready, open-source CMS that treats AI as a first-class citizen — not an
-afterthought. It is built for Laravel developers self-hosting a content site that both people and AI agents
-need to read: every public page is served as clean Markdown with YAML frontmatter to any client sending
-`Accept: text/markdown`, and the full site is indexed for LLM ingestion at `/llms.txt`. Under the hood it is
-Laravel 13, MongoDB and a React + Inertia.js admin SPA, with a secure **Media Vault** and a multi-provider
-**AI Hub** (OpenRouter, OpenAI, Anthropic, Gemini, and more).
+**Unysis Marketplace** is the internal catalogue where the UNYSIS team publishes the AI Models and
+Scripts that run on UNYSIS Boxes, and from which **RPA-TOOL** fetches them. Team Members manage the
+catalogue through a React + Inertia.js admin SPA; UNYSIS Boxes talk to a read-only JSON API with
+Sanctum tokens bound to the box. It is built on Laravel 13, PHP 8.4 and PostgreSQL.
 
-<p align="center">
-  <a href="https://github.com/watchtower/untitled-cms/actions/workflows/ci.yml"><img src="https://github.com/watchtower/untitled-cms/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/PHP-8.4%2B-blue?logo=php" alt="PHP 8.4+">
-  <img src="https://img.shields.io/badge/Laravel-13-red?logo=laravel" alt="Laravel 13">
-  <img src="https://img.shields.io/badge/MongoDB-6%2B-green?logo=mongodb" alt="MongoDB 6+">
-  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License">
-</p>
+The domain vocabulary — AI Model, Script, Revision, Machine Model, Machine Brand, Customer,
+Team Member, Customer User, UNYSIS Box, Download — is defined in [`CONTEXT.md`](CONTEXT.md).
+Use those words.
 
-<p align="center">
-  <strong>An AI-native Content Management System built for the age of agents.</strong><br>
-  Laravel 13 · MongoDB · React + Inertia.js · Multi-provider AI Hub · OpenRouter · Markdown-for-Agents
-</p>
-
----
-
-![Untitled CMS](.github/assets/banner.png)
-
----
-
-### Why Untitled CMS?
-
-| You want…                        | Untitled CMS gives you…                                                                                                  |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| A CMS that works _with_ AI tools | `/llms.txt`, `/llms-full.txt`, `Accept: text/markdown` on every page, and YAML frontmatter for agents                    |
-| Secure media management          | Ordered upload pipeline: double-extension detection → MIME check → optional ClamAV scan → image sanitization → moderation |
-| Flexible AI integration          | Swap providers at runtime — OpenRouter, OpenAI, Anthropic, Gemini, Groq, Mistral, Deepseek, Ollama                       |
-| Granular access control          | Fine-grained `resource.action` permissions, per-resource policies, cached RBAC, invite-only user flow                    |
-| A developer-friendly stack       | Laravel 13 + React 19 + TypeScript + Tailwind CSS v4 + Shadcn UI, all in one repo                                        |
-| Easy self-hosting                | Interactive installers (bash + PowerShell), Docker Compose, systemd + Nginx templates                                    |
-
----
-
-## What's New in 0.5.0
-
-Highlights of the [0.5.0 release](CHANGELOG.md#050--2026-09-13). Full details in [CHANGELOG.md](CHANGELOG.md#050--2026-09-13).
-
-- **Windows installer** — native `install.ps1`; `install.sh` now fails fast with clear errors and warns when run on Windows.
-- **AI assistant** — chat sidebar rebuilt on shadcn chat primitives; chat retries once on provider rate limits; all provider calls go through `AiHttpClient` (timeouts + logging).
-- **Media Vault** — browser refactored into a `useVaultBrowser` hook with debounced search; hardened folder/file policies; dedicated form requests for move, rename, alt text and batch actions (capped at 500 files); unique folder-name index; nested folders now appear in the full folder tree.
-- **Fixes** — menu items validate against their real shape (saves no longer drop data); banner slugs no longer collide with themselves on edit; draft preview is authorized through `PagePolicy`; AI context lists recent content in the correct order.
-- **Security** — vulnerable Composer dependencies updated.
-- **Tests** — new feature coverage for menus, the Vault, policies, AI chat, banners and Markdown pages, plus a unit test for `AiHttpClient`.
-- **For contributors** — [`AGENTS.md`](AGENTS.md) is now the single configuration file for AI coding agents; `CLAUDE.md` and `GEMINI.md` forward to it.
+> This is an internal application, not a public website. There is no public content surface:
+> `/` redirects to the dashboard for signed-in Team Members and to the login page otherwise.
 
 ---
 
 ## What's Inside
 
-| Module                  | Highlights                                                                                                                                                                                              |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Auth & RBAC**         | Login · Registration · Email verification · Token-based invitations · Granular role/permission system with Laravel Gate policies                                                                        |
-| **Pages**               | TinyMCE rich text · Draft/Published workflow with draft preview · SEO meta fields · AI-generated meta · Dynamic public routing                                                                          |
-| **Banners**             | Manual display order · Active/inactive scheduling with `start_at / end_at`                                                                                                                                   |
-| **The Vault**           | Hierarchical media manager · 3-panel resizable layout · Secure upload pipeline (6 stages + optional ClamAV) · Folder-level permissions · Trash & batch restore · Full audit log · AI-generated alt text |
-| **AI Hub**              | Multi-provider manager (OpenRouter, OpenAI, Gemini, Anthropic, Groq, Mistral, Deepseek, Ollama) · Per-hub monthly usage tracking · Text generation · SEO meta generation · Vision-based alt text · Image generation (OpenAI, Gemini, Stability AI, OpenRouter) |
-| **AI Assistant**        | In-admin chat sidebar with saved sessions · AI actions that create/update pages and banners, validated server-side and revertible from the activity log                                                |
-| **Markdown for Agents** | Every public page responds with clean Markdown + YAML frontmatter when `Accept: text/markdown` is sent — ready for AI crawlers and coding assistants                                                    |
-| **`/llms.txt`**         | AI-discoverability standard (llmstxt.org) — index of all published pages for LLM ingestion. `/llms-full.txt` delivers full page content as plain Markdown                                               |
-| **Dashboard**           | Analytics cards + Recharts charts · Recent activity feed                                                                                                                                                |
-| **Activity Log**        | Comprehensive audit trail for all admin actions, filterable in the admin panel                                                                                                                          |
-| **Settings**            | Site-wide key/value settings store · Custom maintenance mode & error pages                                                                                                                              |
-| **Menus**               | Navigation builder with nested sub-items and up/down ordering                                                                                                                                           |
-| **Email**               | Resend, SMTP, SES and Postmark mailers · Email logs · Suppression list with unsubscribe links · Delivery webhooks (Resend, Mailgun, SendGrid) at `/webhooks/email`                                    |
-| **Social Login**        | OAuth via Google and GitHub                                                                                                                                                                             |
-| **LLM Wiki**            | Persistent, agent-maintained knowledge base (`wiki/`) with automated retrieval protocols for AI development                                                                                             |
+| Area | Highlights |
+| ---- | ---------- |
+| **Catalogue** | Scripts and AI Models organised by Machine Brand / Machine Model · Preview Images · optional Customer labelling · soft delete and hard delete |
+| **Revisions** | Immutable, sequentially numbered uploads with a change note, SHA-256 checksum, magic-byte validation, size cap, optional ClamAV scan, and a one-way `draft → released → deprecated` lifecycle |
+| **UNYSIS Boxes** | Auto-registered on first sight by motherboard UUID · `pending` / `active` / `blocked` status · `last_seen_at` presence · derived "installed" view per box |
+| **Downloads & reporting** | Every fetch recorded (web or API) · filterable Download log with CSV export · Usage report by Customer and by entry, with its own exports |
+| **Dashboard** | Stat cards (Scripts, AI Models, Customers, Boxes, Downloads with 7-day delta) · 30-day downloads chart · latest Revisions · recently seen Boxes — each panel gated on the viewer's permissions |
+| **RPA-TOOL API v1** | Sanctum bearer tokens named after the box · catalogue browsing, `check-update`, and streamed Revision downloads · dedicated rate limiters |
+| **The Vault** | Hierarchical media manager · secure upload pipeline (5 stages + optional ClamAV) · folder-level permissions · trash and batch restore · full audit log |
+| **Auth & RBAC** | Login · email verification · token-based invitations · granular `resource.action` permissions with Laravel Gate policies · social login (Google, GitHub) |
+| **Ops** | Activity log · settings store · maintenance mode with role bypass · email logs, suppression list and delivery webhooks (Resend, Mailgun, SendGrid) |
+| **LLM Wiki** | Persistent, agent-maintained knowledge base under [`wiki/`](wiki/index.md) |
 
 ---
 
 ## Requirements
 
-| Requirement  | Version | Notes                                                                     |
-| ------------ | ------- | ------------------------------------------------------------------------- |
-| **PHP**      | >= 8.4  | Extensions: `mongodb` (>= 2.4), `mbstring`, `xml`, `curl`, `zip`, `gd`, `fileinfo` |
-| **Composer** | >= 2.0  | [getcomposer.org](https://getcomposer.org)                                |
-| **Node.js**  | >= 22.12 | [nodejs.org](https://nodejs.org) — CI builds on Node 24                   |
-| **npm**      | >= 10   | Bundled with Node.js                                                      |
-| **MongoDB**  | >= 6.0  | Local install or [Atlas free tier](https://www.mongodb.com/atlas)         |
-
-> **MongoDB PHP extension:** `pecl install mongodb` — see the [official guide](https://www.php.net/manual/en/mongodb.installation.php).
+| Requirement | Version | Notes |
+| ----------- | ------- | ----- |
+| **PHP** | >= 8.4 | Extensions: `mbstring`, `xml`, `curl`, `zip`, `gd`, `fileinfo`, `pdo_pgsql` |
+| **Composer** | >= 2.0 | [getcomposer.org](https://getcomposer.org) |
+| **PostgreSQL** | >= 16 | Production datastore; tests run SQLite in-memory |
+| **Node.js** | >= 22.12 | [nodejs.org](https://nodejs.org) |
+| **npm** | >= 10 | Bundled with Node.js |
 
 ---
 
-## Installation
-
-### Option A — Interactive Installer _(recommended)_
-
-The installer checks prerequisites, walks you through configuration, and prints your login credentials.
-
-**macOS / Linux:**
-```bash
-git clone https://github.com/watchtower/untitled-cms.git untitled-cms
-cd untitled-cms
-bash install.sh
-```
-
-**Windows:**
-```powershell
-git clone https://github.com/watchtower/untitled-cms.git untitled-cms
-cd untitled-cms
-.\install.ps1
-```
-
-### Option B — One-Command Setup
-
-For environments where you already have a `.env` file ready:
+## Setup
 
 ```bash
 composer run setup
 ```
 
-Runs in sequence: `composer install` → `.env` copy → `key:generate` → `migrate` → `db:seed` → `npm install` → `npm run build`
+Runs in sequence: `composer install` → `.env` copy → `key:generate` → `migrate` → `db:seed`
+→ `npm install` → `npm run build`.
 
-### Option C — Manual Step-by-Step
-
-```bash
-# 1. Clone
-git clone https://github.com/watchtower/untitled-cms.git untitled-cms
-cd untitled-cms
-
-# 2. Dependencies
-composer install
-npm install
-
-# 3. Environment
-cp .env.example .env
-php artisan key:generate
-```
-
-Edit `.env` — set at minimum:
+Set at minimum in `.env`:
 
 ```env
+APP_NAME="Unysis Marketplace"
 APP_URL=http://localhost:8000
 
-DB_CONNECTION=mongodb
+DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
-DB_PORT=27017
-DB_DATABASE=untitled_cms
+DB_PORT=5432
+DB_DATABASE=unysis_marketplace
+DB_USERNAME=postgres
+DB_PASSWORD=
 ```
 
-```bash
-# 4. Migrate and seed (roles, admin user, settings, AI providers, sample content)
-php artisan migrate --force
-php artisan db:seed --force
+### Default login
 
-# 5. Build and serve
-npm run build
-php artisan serve
-```
-
-### Docker
-
-```bash
-# Development
-docker compose -f docker-compose-dev.yml up
-
-# Production
-docker compose up
-```
-
----
-
-## Default Login
-
-After seeding, log in at `http://localhost:8000/login`:
-
-| Field    | Value               |
-| -------- | ------------------- |
-| Email    | `admin@example.com` |
-| Password | `password`          |
-
-> **Change this password immediately after your first login.**
+After seeding, sign in at `http://localhost:8000/login` with `admin@example.com` / `password`.
+**Change this password immediately.**
 
 ---
 
 ## Development
 
-Start all dev services in one command (server + queue worker + log viewer + Vite HMR):
+```bash
+composer run dev     # server + queue worker + log viewer (Pail) + Vite HMR
+```
+
+| Command | Description |
+| ------- | ----------- |
+| `composer run dev` | Start all dev services |
+| `composer run test` | Clear config and run the PHPUnit suite |
+| `php artisan test --filter NameOfTest` | Run a single test case |
+| `./vendor/bin/pint` | PHP code formatter (Laravel Pint) |
+| `npm run dev` | Vite dev server with HMR only |
+| `npm run build` | `tsc && vite build` — TypeScript errors fail the build |
+| `php artisan migrate:fresh --seed` | Wipe and re-seed (dev only) |
+
+Working with an AI coding agent? Project conventions for all agents live in [`AGENTS.md`](AGENTS.md);
+`CLAUDE.md` and `GEMINI.md` forward to it.
+
+---
+
+## Admin areas
+
+All admin routes sit under `/admin` behind `auth`, `verified` and `RequireAdminAccess`.
+
+- **Dashboard** — catalogue and download health at a glance
+- **Marketplace** — Customers (and their Customer Users), Machine Brands, Machine Models,
+  Scripts, AI Models, UNYSIS Boxes, Downloads, Usage Report
+- **Administration** — Vault, Users, Roles, Email Logs, Activity, Settings
+
+---
+
+## RPA-TOOL API
+
+The read-only catalogue API lives under `/api/v1` and speaks JSON. RPA-TOOL signs in with a
+Customer User's credentials **plus the motherboard UUID of the box it runs on**; the token that
+comes back is named after that UUID, and every later request resolves the UNYSIS Box from it.
+Downloads are attributed to `Customer User + UNYSIS Box` taken from the token — no request
+parameter can change either. Blocking a box or deactivating a Customer User takes effect on the
+next request, not at token expiry.
+
+Full reference: [`docs/api/rpa-tool-v1.md`](docs/api/rpa-tool-v1.md).
+
+Rate limits: 5/min login (per IP), 20/min downloads and 60/min general (per token).
+
+---
+
+## Permissions & roles
+
+Permissions are strings in `resource.action` form. The canonical list is
+`Role::availablePermissions()` in `app/Models/Role.php` — **42** permissions across `media`,
+`users`, `roles`, `email_logs`, `manage-settings`, `customers`, `machines`, `scripts`,
+`ai_models`, `unysis_boxes` and `downloads`. Do not hardcode copies of it elsewhere.
+
+Seeded roles:
+
+| Role | Backend access | What it can do |
+| ---- | -------------- | -------------- |
+| `admin` | yes | Everything |
+| `editor` | yes | Manage the catalogue and its Vault media; no Users, Roles or Customers |
+| `author` | yes | Draft catalogue entries and upload Revisions; cannot release or delete |
+| `viewer` | yes | Read-only catalogue |
+| `customer` | **no** | Customer Users signing in through RPA-TOOL; no admin access at all |
+
+Checks are cached per user (~60s) and busted on role save and `User::syncRoles()`.
+See [`wiki/modules/permissions.md`](wiki/modules/permissions.md).
+
+---
+
+## Tech stack
+
+**Backend** — Laravel 13 · PHP 8.4 · PostgreSQL (plain Eloquent, ULID primary keys, no FK
+constraints) · Laravel Sanctum (sessions + API tokens) · Laravel Socialite · Inertia.js ·
+Intervention Image · Resend · Ziggy.
+
+**Frontend** — React 19 · TypeScript · Tailwind CSS v4 · Shadcn/Radix UI · Vite 8 ·
+TanStack Table · Recharts · @dnd-kit · react-dropzone · Zod · Sonner · lucide-react.
+
+---
+
+## Testing
 
 ```bash
-composer run dev
+composer run test
+php artisan test tests/Feature/Marketplace/UsageReportTest.php
 ```
 
-| Command                    | Description                     |
-| -------------------------- | ------------------------------- |
-| `php artisan serve`        | Laravel dev server on port 8000 |
-| `npm run dev`              | Vite dev server with HMR        |
-| `php artisan queue:listen` | Process queued jobs             |
-| `php artisan pail`         | Real-time log viewer            |
-| `composer run test`        | Run PHPUnit test suite          |
-| `./vendor/bin/pint`        | PHP code formatter              |
+`phpunit.xml` pins `DB_CONNECTION=sqlite` / `DB_DATABASE=:memory:`, so the suite needs no
+external database. CI runs it twice — on SQLite and on a real PostgreSQL 17 service — to catch
+dialect differences; the one unavoidable difference lives in `app/Support/DateBucket.php`.
+Write new raw SQL through the query builder, or follow the `DateBucket` pattern.
 
-> Tests run against MongoDB — make sure the database configured in `.env` is reachable before running the suite.
-
-Working with an AI coding agent? Project conventions for all agents live in [`AGENTS.md`](AGENTS.md).
+See [`wiki/architecture/testing.md`](wiki/architecture/testing.md).
 
 ---
 
-## AI for Agents & LLMs
+## Optional configuration
 
-Untitled CMS is designed to be AI-readable out of the box.
+### ClamAV (virus scanning)
 
-### `/llms.txt` — Discovery Index
-
-A standard index of all published pages following the [llmstxt.org](https://llmstxt.org) specification:
-
-```bash
-curl https://yoursite.com/llms.txt
-```
-
-### `/llms-full.txt` — Full Content for Ingestion
-
-All published pages as plain Markdown — ideal for RAG pipelines. Responses include an `x-llms-tokens` header:
-
-```bash
-curl https://yoursite.com/llms-full.txt
-```
-
-### `Accept: text/markdown` — Per-Page Extraction
-
-Every public page supports Markdown delivery with YAML frontmatter:
-
-```bash
-# Homepage — Markdown index of recent pages
-curl -H "Accept: text/markdown" https://yoursite.com/
-
-# Any page — YAML frontmatter + Markdown body
-curl -H "Accept: text/markdown" https://yoursite.com/getting-started
-```
-
-Responses include `Content-Signal` and `x-markdown-tokens` headers for AI pipeline compatibility.
-
----
-
-## Tech Stack
-
-### Backend
-
-| Package                                                                     | Version  | Purpose                            |
-| --------------------------------------------------------------------------- | -------- | ---------------------------------- |
-| [Laravel](https://laravel.com/)                                             | `^13.0`  | Core framework                     |
-| [mongodb/laravel-mongodb](https://github.com/mongodb/laravel-mongodb)       | `^5.7`   | MongoDB ODM                        |
-| [laravel/sanctum](https://laravel.com/docs/sanctum)                         | `^4.0`   | Session & token authentication     |
-| [laravel/socialite](https://laravel.com/docs/socialite)                     | `^5.24`  | OAuth (Google, GitHub)             |
-| [laravel/ai](https://github.com/laravel/ai)                                 | `^0.11`  | LLM provider abstraction           |
-| [inertiajs/inertia-laravel](https://inertiajs.com/)                         | `^3.0`   | Server-side SPA bridge             |
-| [intervention/image](https://image.intervention.io/v4)                      | `^4.0`   | Driver for Laravel's `Image` (WebP optimization) |
-| [league/html-to-markdown](https://github.com/thephpleague/html-to-markdown) | `^5.1`   | HTML → Markdown for AI delivery    |
-| [ezyang/htmlpurifier](https://github.com/ezyang/htmlpurifier)               | `^4.19`  | HTML sanitization (`HtmlSanitizer`) |
-| [resend/resend-laravel](https://github.com/resend/resend-laravel)           | `^1.0`   | Resend mail transport              |
-| [tightenco/ziggy](https://github.com/tighten/ziggy)                         | `^2.0`   | Named Laravel routes in JavaScript |
-
-### Frontend
-
-| Package                                             | Version | Purpose                          |
-| --------------------------------------------------- | ------- | -------------------------------- |
-| [React](https://reactjs.org/)                       | `^19.2` | UI framework                     |
-| TypeScript                                          | `^5.0`  | Type safety                      |
-| [Tailwind CSS](https://tailwindcss.com/)            | v4      | Utility-first styling            |
-| [Shadcn UI](https://ui.shadcn.com/)                 | latest  | Accessible component library     |
-| [TinyMCE](https://www.tiny.cloud/)                  | `7`     | Rich text editor (loaded via CDN) |
-| [@dnd-kit](https://dndkit.com/)                     | `^6`    | Drag-and-drop                    |
-| [@tanstack/react-table](https://tanstack.com/table) | `^9`    | Headless data tables             |
-| [Recharts](https://recharts.org/)                   | `^3`    | Dashboard charts                 |
-| [Sonner](https://sonner.emilkowal.ski/)             | `^2`    | Toast notifications              |
-| [Zod](https://zod.dev/)                             | `^4`    | Frontend schema validation       |
-| [react-dropzone](https://react-dropzone.js.org/)    | `^20`   | Vault uploads                    |
-
----
-
-## 🎨 UI & Theming (Shadcn UI)
-
-Untitled CMS uses [Shadcn UI](https://ui.shadcn.com/) for its component library, powered by Tailwind CSS v4.
-
-Want to completely change the look and feel of your admin panel in minutes? It's incredibly easy using Shadcn's new visual theming engine.
-
-**How to generate and apply a new theme:**
-1. Visit **[ui.shadcn.com/create](https://ui.shadcn.com/create)**.
-2. Use the interactive tools to pick your base color, radius, and dark mode preferences.
-3. Once you have a design you love, click **Copy code**.
-4. Open `resources/css/app.css` in this project.
-5. Replace the existing `@theme { ... }` block with your copied code.
-6. Run `npm run dev` and watch your entire CMS instantly transform!
-
-**Want to start your own project with our exact UI preset?**
-You can scaffold a brand new app using the same sleek `b2fA` preset with a single command:
-```bash
-npx shadcn@latest init --preset b2fA --template next
-```
-
----
-
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────┐
-│                    Public Web                        │
-│  / → PublicController (HTML or Markdown response)   │
-│  /{slug} → Page with YAML frontmatter               │
-│  /llms.txt → AI discovery index                     │
-│  /llms-full.txt → Full content for LLM ingestion    │
-└──────────────────┬──────────────────────────────────┘
-                   │ Accept: text/markdown  /  curl
-                   ▼
-          AI Crawlers / Agents / RAG Pipelines
-
-┌──────────────────────────────────────────────────────┐
-│                  Admin SPA                            │
-│  Inertia.js + React + TypeScript                     │
-│                                                      │
-│  Routes → Controllers → MongoDB Models               │
-│                     ↓                                │
-│  AI Hub → AiService → AiHttpClient → Providers       │
-│                     ↓                                │
-│  Vault Upload → Pipeline (6 pipes + ClamAV) → Storage│
-└──────────────────────────────────────────────────────┘
-```
-
-**Key design decisions:**
-
-- **MongoDB throughout** — Flexible document model for pages, vault metadata, activity logs, and AI usage tracking.
-- **Monolithic SPA** — Laravel renders the initial Inertia page; React handles all subsequent navigation. No separate API server.
-- **Upload Pipeline** — Vault uploads pass through an ordered `Pipe` chain: `DetectDoubleExtension → ValidateMimeType → [SandboxedScan] → SanitizeImage → ModerationCheck → GenerateUuid → StoreMetadata`. `SandboxedScan` (ClamAV) is inserted only when `CLAMAV_ENABLED=true`.
-- **Single Active AI Hub** — One hub is "active" at a time; `AiService` dynamically patches Laravel AI's config at runtime so no restart is required when switching providers.
-- **Two HTTP clients** — Hub-configured provider endpoints use `AiHttpClient`; untrusted user- or AI-supplied URLs go through the SSRF-protected `SafeHttpClient`.
-- **AI-readable by default** — `Accept: text/markdown`, `/llms.txt`, and `/llms-full.txt` are built in, not bolted on.
-
----
-
-## AI Hub Setup
-
-1. Navigate to **Admin → AI Hubs**
-2. Enter your API key for a provider (OpenAI, Anthropic, Gemini, etc.)
-3. Set a default text model and image model
-4. Click **Activate**
-
-No API keys are stored in config files — all configuration is done at runtime via the admin UI.
-
----
-
-## Optional Configuration
-
-### Social Login
-
-Add OAuth credentials to `.env`, then enable in **Admin → Settings → Auth**:
-
-```env
-# Google — https://console.cloud.google.com/apis/credentials
-GOOGLE_CLIENT_ID=your-client-id
-GOOGLE_CLIENT_SECRET=your-client-secret
-
-# GitHub — https://github.com/settings/developers
-GITHUB_CLIENT_ID=your-client-id
-GITHUB_CLIENT_SECRET=your-client-secret
-```
-
-### TinyMCE
-
-The page editor loads TinyMCE 7 from Tiny Cloud when an API key is set:
-
-```env
-TINYMCE_API_KEY=your-tiny-cloud-key
-```
-
-### Email
-
-Set `MAIL_MAILER` (defaults to `log`). For Resend, add `RESEND_API_KEY`. Delivery webhooks from Resend, Mailgun or SendGrid are verified with `RESEND_WEBHOOK_SECRET`, `MAILGUN_WEBHOOK_SIGNING_KEY` or `SENDGRID_WEBHOOK_PUBLIC_KEY` — see `.env.example`.
-
-### ClamAV (Virus Scanning)
-
-Optional antivirus scanning for vault uploads. Disabled by default:
+Off by default; shared by Vault uploads and Revision uploads.
 
 ```env
 CLAMAV_ENABLED=true
@@ -385,101 +182,37 @@ CLAMAV_ENABLED=true
 # CLAMAV_FAIL_CLOSED=false   # true = reject uploads when the scanner is unreachable
 ```
 
-Requires a reachable ClamAV daemon.
+### Email
+
+Set `MAIL_MAILER` (defaults to `log`). For Resend, add `RESEND_API_KEY`. Delivery webhooks from
+Resend, Mailgun or SendGrid arrive at `/webhooks/email` and are verified with
+`RESEND_WEBHOOK_SECRET`, `MAILGUN_WEBHOOK_SIGNING_KEY` or `SENDGRID_WEBHOOK_PUBLIC_KEY` —
+see `.env.example`.
+
+### Social login
+
+Add OAuth credentials to `.env`, then enable them in **Admin → Settings → Auth**:
+
+```env
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+```
 
 ---
 
-## Commands Reference
+## Documentation
 
-| Command                            | Description                                        |
-| ---------------------------------- | -------------------------------------------------- |
-| `bash install.sh`                  | Interactive first-time installer (macOS / Linux)   |
-| `.\install.ps1`                    | Interactive first-time installer (Windows)         |
-| `composer run setup`               | Non-interactive full setup                         |
-| `composer run dev`                 | Start all dev services (server, queue, logs, Vite) |
-| `composer run test`                | Run PHPUnit test suite                             |
-| `./vendor/bin/pint`                | PHP code formatter (Laravel Pint)                  |
-| `npm run dev`                      | Vite dev server with HMR only                      |
-| `npm run build`                    | Type-check and production frontend build           |
-| `php artisan db:seed --force`      | Re-seed the database                               |
-| `php artisan migrate:fresh --seed` | Wipe and re-seed (dev only)                        |
-
----
-
-## Deployment
-
-See [docs/deployment.md](docs/deployment.md) for a full production deployment guide — including Nginx config, systemd queue worker, SSL, and multi-server scaling.
-
-Scripts at the project root:
-
-- `deploy.sh` — Git pull + asset build + cache clear
-- `backup.sh` — MongoDB backup script
-
----
-
-## Feature Roadmap
-
-### Shipped ✓
-
-- Authentication (Login, Register, Forgot/Reset Password, Email Verification)
-- Token-based user invitation flow
-- Granular RBAC — Roles, Permissions, Laravel Gate policies
-- Social login (Google, GitHub)
-- Users module (CRUD, soft-delete, avatar, batch actions, logout all devices)
-- Pages module (TinyMCE, SEO fields, Draft/Published, dynamic routing)
-- Banners module (manual display order, scheduling)
-- The Vault — hierarchical media manager with secure upload pipeline, trash and batch restore
-- VaultPicker — reusable media selection component
-- AI Hub — multi-provider manager (OpenRouter, OpenAI, Anthropic, Gemini, Deepseek, Groq, Mistral, Ollama)
-- AI text generation, SEO meta generation, vision alt-text, image generation
-- AI assistant — chat sessions and revertible AI actions on pages and banners
-- Dashboard with Recharts analytics
-- Activity log — filterable audit trail
-- **`/llms.txt` + `/llms-full.txt`** — AI-discoverability standard
-- Markdown-for-Agents (`Accept: text/markdown` + YAML frontmatter)
-- Sitemap for agents (`/sitemap.md`)
-- RSS feed
-- Settings — admin-configurable key/value store
-- Email — logs, suppression and unsubscribe, multi-provider delivery webhooks
-- Dark mode, responsive layouts, Shadcn UI
-- Maintenance mode with admin bypass and custom error pages
-- Enhanced security (OWASP Top 10 mitigation, SSRF protection)
-- Strict typing via DTOs and Form Requests
-- Navigation / menus system with nested items
-- Interactive installers for macOS/Linux and Windows
-- GitHub Actions CI (tests, linting, security audit, frontend build)
-
-### Planned
-
-- [ ] **Scheduled publishing** — publish pages automatically at `published_at`
-- [ ] **Page versioning** — revision history with diff viewer and restore
-- [ ] **Full-text search** — `Cmd+K` command palette across Pages, Users, Vault
-- [ ] **Webhook system** — Trigger HTTP webhooks on `page.published`, `vault.uploaded`, etc.
-- [ ] **REST API layer** — Sanctum-protected API for headless consumption
-- [ ] **2FA** — TOTP two-factor authentication for admin accounts
-- [ ] **Page view tracking** — Anonymous analytics in the dashboard
-- [ ] **Notification system** — In-app / email / push with per-user preferences
-
----
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, coding standards, and the module creation walkthrough. AI coding agents should follow [AGENTS.md](AGENTS.md).
-
----
-
-## Security
-
-Please report vulnerabilities privately — see [SECURITY.md](SECURITY.md).
-
----
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for a full history of releases and changes. Current version: **0.5.1** — a security patch on top of 0.5.0 (highlights in [What's New in 0.5.0](#whats-new-in-050)).
+- [`CONTEXT.md`](CONTEXT.md) — domain vocabulary
+- [`AGENTS.md`](AGENTS.md) — conventions for humans and AI coding agents
+- [`wiki/index.md`](wiki/index.md) — architecture and module knowledge base
+- [`docs/api/rpa-tool-v1.md`](docs/api/rpa-tool-v1.md) — RPA-TOOL API reference
+- [`docs/deployment.md`](docs/deployment.md) — production deployment guide
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`SECURITY.md`](SECURITY.md) · [`CHANGELOG.md`](CHANGELOG.md)
 
 ---
 
 ## License
 
-This project is open-sourced software licensed under the [MIT license](LICENSE).
+Licensed under the [MIT license](LICENSE).

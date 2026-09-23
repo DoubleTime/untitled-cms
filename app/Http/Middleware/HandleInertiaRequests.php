@@ -2,10 +2,8 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Menu;
 use App\Services\SettingsService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Middleware;
 
@@ -35,16 +33,14 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
-            'appName' => config('app.name', 'Laravel'),
+            'appName' => config('app.name', 'Unysis Marketplace'),
+            'appVersion' => config('app.version'),
             'auth' => [
                 'user' => $request->user()?->only(['id', 'name', 'email', 'is_active']),
                 'permissions' => $request->user() ? $request->user()->getCachedPermissions() : [],
                 'canAccessBackend' => $request->user()?->canAccessBackend() ?? false,
             ],
-            'tinymce_api_key' => $request->user()?->canAccessBackend() ? config('services.tinymce.api_key') : null,
             'settings' => app(SettingsService::class)->getPublicSettings(),
-            'aiChatEnabled' => (bool) app(SettingsService::class)->get('ai.chat_enabled', true),
-            'menus' => Cache::remember('active_menus', 300, fn () => Menu::active()->get()->keyBy('slug')),
             'passwordRulesString' => Password::defaults()->toPasswordRulesString(),
             // Controllers flash success/error with redirect()->with(...); the frontend
             // surfaces these as toasts (see resources/js/hooks/use-flash-toast.ts).

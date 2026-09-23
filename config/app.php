@@ -13,7 +13,18 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'Unysis Marketplace'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Application Version
+    |--------------------------------------------------------------------------
+    |
+    | Shown in the admin sidebar. Keep in step with package.json's "version".
+    |
+    */
+
+    'version' => '1.0.0',
 
     /*
     |--------------------------------------------------------------------------

@@ -277,6 +277,7 @@ export type PageProps<
     T extends Record<string, unknown> = Record<string, unknown>,
 > = T & {
     appName: string;
+    appVersion: string;
     auth: {
         user: User;
         permissions: string[];
@@ -286,7 +287,6 @@ export type PageProps<
         success?: string | null;
         error?: string | null;
     };
-    tinymce_api_key?: string;
     canCreate?: boolean;
     canEdit?: boolean;
     canDelete?: boolean;

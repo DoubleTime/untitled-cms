@@ -3,16 +3,16 @@
 namespace App\Http\Controllers\Marketplace;
 
 use App\Http\Controllers\Controller;
-use App\Models\AiModel;
 use App\Models\Customer;
 use App\Models\Download;
-use App\Models\Script;
 use App\Models\UnysisBox;
 use App\Models\User;
 use App\Support\DownloadPresenter;
-use Illuminate\Database\Eloquent\Builder;
+use App\Support\DownloadQuery;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * The Download log — every recorded fetch of a Revision file, from RPA-TOOL
@@ -21,21 +21,27 @@ use Inertia\Inertia;
  * Download rows are append-only and are never deleted, not even when the entry
  * or the Revision they point at is hard deleted, so this is the durable record
  * of what left the Marketplace.
+ *
+ * The filter builder lives in App\Support\DownloadQuery so the index, the CSV
+ * export and the Usage report all narrow the table identically.
  */
 class DownloadController extends Controller
 {
     private const PER_PAGE = 50;
 
+    /** Rows pulled per chunk while streaming the export. */
+    private const EXPORT_CHUNK = 500;
+
     public function index(Request $request)
     {
         $this->authorizeView($request);
 
-        $filters = $this->filters($request);
+        $filters = DownloadQuery::filters($request);
 
-        $downloads = $this->query($filters)
+        $downloads = DownloadQuery::build($filters)
             ->with(['user:id,name', 'revision:id,number', 'unysisBox:id,name,motherboard_uuid'])
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
+            ->orderByDesc('downloads.created_at')
+            ->orderByDesc('downloads.id')
             ->paginate(self::PER_PAGE)
             ->withQueryString();
 
@@ -59,81 +65,90 @@ class DownloadController extends Controller
         ]);
     }
 
-    private function authorizeView(Request $request): void
+    /**
+     * The currently filtered log as CSV.
+     *
+     * Streamed and chunked: the row set is unbounded, so nothing larger than one
+     * chunk is ever held in memory and the response starts before the query ends.
+     */
+    public function export(Request $request): StreamedResponse
     {
-        abort_unless($request->user()?->hasPermission('downloads.view'), 403);
+        $this->authorizeView($request);
+
+        $filters = DownloadQuery::filters($request);
+        $filename = 'downloads-'.now()->format('Y-m-d').'.csv';
+
+        return response()->streamDownload(function () use ($filters) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, [
+                'downloaded_at', 'source', 'entry_type', 'entry_name',
+                'machine_model', 'machine_brand', 'revision_number', 'revision_status',
+                'customer_code', 'customer_company', 'unysis_box_uuid', 'unysis_box_name',
+                'user_name', 'user_email', 'ip',
+            ]);
+
+            DownloadQuery::build($filters)
+                ->with([
+                    'user:id,name,email,customer_id',
+                    'user.customer:id,code,company',
+                    'revision:id,number,status',
+                    'unysisBox:id,name,motherboard_uuid,customer_id',
+                    'unysisBox.customer:id,code,company',
+                ])
+                ->orderBy('downloads.id')
+                ->chunk(self::EXPORT_CHUNK, function (Collection $rows) use ($handle) {
+                    // One extra pair of queries per chunk resolves the entry names,
+                    // including entries that have since been soft or hard deleted.
+                    $names = DownloadPresenter::entryNames($rows);
+
+                    foreach ($rows as $download) {
+                        fputcsv($handle, $this->exportRow($download, $names));
+                    }
+
+                    flush();
+                });
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     /**
-     * @return array<string, string|null>
+     * @param  array<string, array<string, mixed>>  $names
+     * @return array<int, string|int|null>
      */
-    private function filters(Request $request): array
+    private function exportRow(Download $download, array $names): array
     {
-        $source = $request->string('source')->toString();
-        $entryType = $request->string('entry_type')->toString();
+        $entry = $names[$download->revisable_type.':'.$download->revisable_id] ?? [];
+
+        // A Download belongs to a Customer through its UNYSIS Box, or — for a web
+        // fetch with no box — through the Customer User who made it.
+        $customer = $download->unysisBox?->customer ?? $download->user?->customer;
 
         return [
-            'source' => in_array($source, [Download::SOURCE_API, Download::SOURCE_WEB], true) ? $source : null,
-            'entry_type' => in_array($entryType, ['script', 'ai_model'], true) ? $entryType : null,
-            'customer_id' => $request->string('customer_id')->toString() ?: null,
-            'unysis_box_id' => $request->string('unysis_box_id')->toString() ?: null,
-            'user_id' => $request->string('user_id')->toString() ?: null,
-            'q' => trim($request->string('q')->toString()) ?: null,
-            'from' => $request->string('from')->toString() ?: null,
-            'to' => $request->string('to')->toString() ?: null,
+            $download->created_at?->toIso8601String(),
+            $download->source,
+            $download->revisable_type,
+            $entry['name'] ?? null,
+            $entry['machine_model'] ?? null,
+            $entry['machine_brand'] ?? null,
+            $download->revision?->number,
+            $download->revision?->status,
+            $customer?->code,
+            $customer?->company,
+            $download->unysisBox?->motherboard_uuid,
+            $download->unysisBox?->name,
+            $download->user?->name,
+            $download->user?->email,
+            $download->ip,
         ];
     }
 
-    /**
-     * @param  array<string, string|null>  $filters
-     */
-    private function query(array $filters): Builder
+    private function authorizeView(Request $request): void
     {
-        return Download::query()
-            ->when($filters['source'], fn (Builder $q, $source) => $q->where('source', $source))
-            ->when($filters['entry_type'], fn (Builder $q, $type) => $q->where('revisable_type', $type))
-            ->when($filters['unysis_box_id'], fn (Builder $q, $id) => $q->where('unysis_box_id', $id))
-            ->when($filters['user_id'], fn (Builder $q, $id) => $q->where('user_id', $id))
-            // A Download carries no customer_id: it belongs to a Customer through
-            // the UNYSIS Box it came from, or — for a web fetch with no box — through
-            // the Customer User who made it.
-            ->when($filters['customer_id'], fn (Builder $q, $id) => $q->where(
-                fn (Builder $inner) => $inner
-                    ->whereIn('unysis_box_id', UnysisBox::query()->where('customer_id', $id)->select('id'))
-                    ->orWhereIn('user_id', User::query()->where('customer_id', $id)->select('id'))
-            ))
-            ->when($filters['q'], fn (Builder $q, $term) => $this->applyEntrySearch($q, $term))
-            ->when($filters['from'], fn (Builder $q, $from) => $q->whereDate('created_at', '>=', $from))
-            ->when($filters['to'], fn (Builder $q, $to) => $q->whereDate('created_at', '<=', $to));
-    }
-
-    /**
-     * Entry search resolves the matching entry ids first, per entry type, and
-     * filters the polymorphic column on those — a join is not possible across two
-     * tables behind one morph column.
-     */
-    private function applyEntrySearch(Builder $query, string $term): Builder
-    {
-        $like = '%'.str_replace(['%', '_'], ['\%', '\_'], $term).'%';
-
-        $scriptIds = Script::withTrashed()->where('name', 'like', $like)->pluck('id')->all();
-        $aiModelIds = AiModel::withTrashed()->where('name', 'like', $like)->pluck('id')->all();
-
-        return $query->where(function (Builder $inner) use ($scriptIds, $aiModelIds) {
-            $inner->whereRaw('1 = 0');
-
-            if ($scriptIds !== []) {
-                $inner->orWhere(fn (Builder $q) => $q
-                    ->where('revisable_type', 'script')
-                    ->whereIn('revisable_id', $scriptIds));
-            }
-
-            if ($aiModelIds !== []) {
-                $inner->orWhere(fn (Builder $q) => $q
-                    ->where('revisable_type', 'ai_model')
-                    ->whereIn('revisable_id', $aiModelIds));
-            }
-        });
+        abort_unless($request->user()?->hasPermission('downloads.view'), 403);
     }
 
     /**
@@ -145,20 +160,20 @@ class DownloadController extends Controller
      */
     private function summary(array $filters): array
     {
-        $total = $this->query($filters)->count();
+        $total = DownloadQuery::build($filters)->count();
 
-        $lastSevenDays = $this->query($filters)
-            ->where('created_at', '>=', now()->subDays(7))
+        $lastSevenDays = DownloadQuery::build($filters)
+            ->where('downloads.created_at', '>=', now()->subDays(7))
             ->count();
 
-        $uniqueBoxes = $this->query($filters)
-            ->whereNotNull('unysis_box_id')
+        $uniqueBoxes = DownloadQuery::build($filters)
+            ->whereNotNull('downloads.unysis_box_id')
             ->distinct()
             ->count('unysis_box_id');
 
-        $top = $this->query($filters)
-            ->selectRaw('revisable_type, revisable_id, count(*) as downloads')
-            ->groupBy('revisable_type', 'revisable_id')
+        $top = DownloadQuery::build($filters)
+            ->selectRaw('downloads.revisable_type, downloads.revisable_id, count(*) as downloads')
+            ->groupBy('downloads.revisable_type', 'downloads.revisable_id')
             ->orderByDesc('downloads')
             ->limit(5)
             ->get();

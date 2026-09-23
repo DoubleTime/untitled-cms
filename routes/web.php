@@ -1,32 +1,21 @@
 <?php
 
 use App\Http\Controllers\ActivityLogController;
-use App\Http\Controllers\AiActionController;
-use App\Http\Controllers\AiContextController;
-use App\Http\Controllers\AiController;
-use App\Http\Controllers\AiHubController;
-use App\Http\Controllers\BannerController;
-use App\Http\Controllers\ChatSessionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmailLogController;
 use App\Http\Controllers\EmailWebhookController;
-use App\Http\Controllers\FeedController;
-use App\Http\Controllers\LlmsController;
 use App\Http\Controllers\Marketplace\AiModelController;
 use App\Http\Controllers\Marketplace\CustomerController;
 use App\Http\Controllers\Marketplace\CustomerUserController;
 use App\Http\Controllers\Marketplace\DownloadController;
 use App\Http\Controllers\Marketplace\MachineBrandController;
 use App\Http\Controllers\Marketplace\MachineModelController;
+use App\Http\Controllers\Marketplace\ReportController;
 use App\Http\Controllers\Marketplace\ScriptController;
 use App\Http\Controllers\Marketplace\UnysisBoxController;
-use App\Http\Controllers\MenuController;
-use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\PublicController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SettingController;
-use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\UnsubscribeController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VaultController;
@@ -83,52 +72,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'admin']
 
     // Roles
     Route::resource('roles', RoleController::class);
-
-    // Pages
-    Route::resource('pages', PageController::class);
-
-    // Banners
-    Route::resource('banners', BannerController::class);
-
-    // Menus
-    Route::resource('menus', MenuController::class)->except(['create', 'show']);
-
-    // AI Hubs
-    Route::resource('ai-hubs', AiHubController::class)->only(['index', 'update']);
-    Route::post('/ai-hubs/{aiHub}/activate', [AiHubController::class, 'activate'])->name('ai-hubs.activate');
-    Route::post('/ai-hubs/{aiHub}/reset-usage', [AiHubController::class, 'resetUsage'])->name('ai-hubs.reset-usage');
-
-    // AI Routes — rate-limited to prevent OpenAI cost abuse (A04)
-    Route::middleware('throttle:30,1')->group(function () {
-        Route::post('/ai/generate-seo', [AiController::class, 'generateSeo'])->name('ai.seo');
-        Route::post('/ai/generate-tags', [AiController::class, 'generateTags'])->name('ai.generate-tags');
-        Route::post('/ai/generate-alt-text', [AiController::class, 'generateAltText'])->name('ai.alt-text');
-        Route::post('/ai/generate', [AiController::class, 'generate'])->name('ai.generate');
-    });
-
-    // Image generation — stricter limit (heavy OpenAI cost) (A04)
-    Route::middleware('throttle:10,1')->group(function () {
-        Route::post('/ai/generate-social-image', [AiController::class, 'generateSocialImage'])->name('ai.social-image');
-        Route::post('/ai/generate-image', [AiController::class, 'generateImage'])->name('ai.generate-image');
-    });
-
-    Route::middleware('throttle:60,1')->group(function () {
-        Route::post('/ai/chat', [AiController::class, 'chat'])->name('ai.chat');
-        Route::get('/ai/context', [AiContextController::class, 'show'])->name('ai.context');
-
-        // AI Chat Sessions
-        Route::get('/ai/chat/sessions', [ChatSessionController::class, 'index'])->name('ai.sessions.index');
-        Route::post('/ai/chat/sessions', [ChatSessionController::class, 'store'])->name('ai.sessions.store');
-        Route::get('/ai/chat/sessions/{id}', [ChatSessionController::class, 'show'])->name('ai.sessions.show');
-        Route::put('/ai/chat/sessions/{id}', [ChatSessionController::class, 'update'])->name('ai.sessions.update');
-        Route::delete('/ai/chat/sessions/{id}', [ChatSessionController::class, 'destroy'])->name('ai.sessions.destroy');
-
-        // AI Actions (Phase 2)
-        Route::post('/ai/actions/resolve', [AiActionController::class, 'resolve'])->name('ai.actions.resolve');
-        Route::post('/ai/actions/parse', [AiActionController::class, 'parse'])->name('ai.actions.parse');
-        Route::post('/ai/actions/execute', [AiActionController::class, 'execute'])->name('ai.actions.execute');
-        Route::post('/ai/actions/revert/{logId}', [AiActionController::class, 'revert'])->name('ai.actions.revert');
-    });
 
     // Marketplace — Customers, Customer Users and Machines (Phase 2)
     Route::prefix('marketplace')->name('marketplace.')->group(function () {
@@ -190,9 +133,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'admin']
         Route::post('/unysis-boxes/{unysis_box}/unblock', [UnysisBoxController::class, 'unblock'])->name('unysis-boxes.unblock');
         Route::post('/unysis-boxes/{unysis_box}/activate', [UnysisBoxController::class, 'activate'])->name('unysis-boxes.activate');
 
-        // Download log (Phase 5)
-        Route::get('/downloads', [DownloadController::class, 'index'])
-            ->middleware('can:downloads.view')->name('downloads.index');
+        // Download log (Phase 5) and reporting (Phase 6)
+        Route::middleware('can:downloads.view')->group(function () {
+            // The export sits above the index so /downloads/export is not swallowed
+            // by a future /downloads/{download} route.
+            Route::get('/downloads/export', [DownloadController::class, 'export'])->name('downloads.export');
+            Route::get('/downloads', [DownloadController::class, 'index'])->name('downloads.index');
+
+            Route::get('/reports/usage/export', [ReportController::class, 'usageExport'])->name('reports.usage.export');
+            Route::get('/reports/usage', [ReportController::class, 'usage'])->name('reports.usage');
+        });
     });
 
     // Activity Log
@@ -212,13 +162,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'admin']
         Route::get('/trash', [VaultController::class, 'trash'])->name('trash.list');
         Route::delete('/trash', [VaultController::class, 'emptyTrash'])->middleware('throttle:5,1')->name('trash.empty');
         Route::post('/upload', [VaultController::class, 'upload'])->name('upload');
-        Route::post('/save-ai-image', [VaultController::class, 'saveAiImage'])->name('save-ai-image');
         Route::get('/check-duplicate', [VaultController::class, 'checkDuplicate'])->middleware('throttle:120,1')->name('check-duplicate');
         Route::get('/file/{uuid}', [VaultController::class, 'serve'])->name('file.serve');
         Route::post('/files/batch-move', [VaultController::class, 'batchMove'])->name('files.batch_move');
         Route::post('/files/batch-delete', [VaultController::class, 'batchDelete'])->name('files.batch_delete');
         Route::post('/files/batch-restore', [VaultController::class, 'batchRestore'])->middleware('throttle:30,1')->name('files.batch_restore');
-        Route::post('/generate-alt-text', [VaultController::class, 'generateMissingAltText'])->name('generate-alt-text');
         Route::delete('/file/{uuid}', [VaultController::class, 'destroy'])->name('file.destroy');
         Route::post('/file/{uuid}/restore', [VaultController::class, 'restore'])->name('file.restore');
         Route::delete('/file/{uuid}/force', [VaultController::class, 'forceDestroy'])->name('file.force_destroy');
@@ -239,17 +187,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'admin']
 
 require __DIR__.'/auth.php';
 
-// Sitemap
-Route::get('/sitemap.md', [SitemapController::class, 'markdown'])->name('sitemap.md');
-
-// LLMs.txt — AI discoverability (llmstxt.org standard)
-Route::get('/llms.txt', [LlmsController::class, 'index'])->name('llms.txt');
-Route::get('/llms-full.txt', [LlmsController::class, 'full'])->name('llms-full.txt');
-
-// RSS Feed
-Route::get('/rss', [FeedController::class, 'rss'])->name('feed.rss');
-Route::get('/feed', [FeedController::class, 'rss']);
-
 // Email Webhooks
 Route::post('/webhooks/email', EmailWebhookController::class)
     ->name('webhooks.email')
@@ -258,8 +195,13 @@ Route::post('/webhooks/email', EmailWebhookController::class)
 // Unsubscribe
 Route::get('/unsubscribe/{token}', UnsubscribeController::class)->name('unsubscribe');
 
-// Public Routes (Must be last to allow {slug} wildcard)
-Route::controller(PublicController::class)->group(function () {
-    Route::get('/', 'home')->name('home');
-    Route::get('/{slug}', 'show')->name('public.page');
-});
+// Root — the Marketplace has no public surface yet, so `/` just points signed-in
+// Team Members at the dashboard and everyone else at the login screen.
+// A public landing page may replace this later.
+Route::get('/', function () {
+    $user = request()->user();
+
+    return $user && $user->canAccessBackend()
+        ? redirect()->route('admin.dashboard')
+        : redirect()->route('login');
+})->name('home');

@@ -2,17 +2,20 @@
 
 > Catalogue of AI Models and Scripts that run on UNYSIS Boxes, fetched by RPA-TOOL
 
-Last updated: 2026-09-22 (Phase 5)
+Last updated: 2026-09-23 (Phase 6)
 
 Vocabulary is fixed in [`CONTEXT.md`](../../CONTEXT.md) — use those terms verbatim in code, UI copy and docs.
 The implementation plan is [`docs/marketplace-plan.md`](../../docs/marketplace-plan.md); decisions are in [`docs/adr/`](../../docs/adr).
 
-**Status: Phases 1-5 complete; Phase 6 (CMS strip) pending.** Phase 1 gave the schema, models,
+**Status: Phases 1-6 complete — the Marketplace is the whole application.** Phase 1 gave the schema, models,
 permissions, config and the private disk; Phase 2 added the Customers, Customer User and Machines
 admin plus the web-login rejection; Phase 3 added the Scripts and AI Models admin,
 `RevisionService`, `DownloadService`, the Revision lifecycle, Preview Images and soft/hard delete;
 Phase 4 added `routes/api.php`, Sanctum login, UNYSIS Box auto-registration and every read + download
-endpoint; Phase 5 adds the UNYSIS Boxes admin, the Download log and the derived installed-revision view.
+endpoint; Phase 5 added the UNYSIS Boxes admin, the Download log and the derived installed-revision view;
+Phase 6 stripped the inherited CMS surface (pages, banners, menus, redirects, the public site and the
+AI Hub) and replaced the boilerplate dashboard with real Marketplace stats, adding the Download CSV
+export and the Usage report.
 The endpoint reference written for the RPA-TOOL developers is
 [`docs/api/rpa-tool-v1.md`](../../docs/api/rpa-tool-v1.md).
 
@@ -72,9 +75,6 @@ and PostgreSQL (production). The repo uses no PHP backed enums; the allowed valu
 - `User::customer()` and `User::isCustomerUser()` were added; `customer_id` is fillable.
   `isCustomerUser()` is a label check, **not** an authorisation check.
 
-**Naming trap:** `App\Models\AiModel` is a marketplace catalogue entry. `App\Models\AiHub` is the CMS's own
-AI provider config. They are unrelated.
-
 ## Permissions
 
 Appended to `Role::availablePermissions()` (the single source of truth — never hardcode counts):
@@ -91,9 +91,6 @@ downloads.view
 `RoleSeeder` syncs the admin role from `availablePermissions()`, so admin picks these up automatically.
 It also seeds a `customer` role: slug `customer`, no permissions, `backend_access = false`, so
 `RequireAdminAccess` already rejects Customer Users from the admin area. See [permissions](permissions.md).
-
-(The unused `RolesAndPermissionsSeeder` enumerates a hand-picked subset and is not wired into
-`DatabaseSeeder`; it was left untouched.)
 
 ## Storage and config
 
@@ -538,11 +535,80 @@ rows, so a row whose entry is gone entirely still renders, unlinked.
 
 `ActivityLogger::log` records `update`, `activate`, `block`, `unblock` and `delete` on UNYSIS Boxes.
 
-**Not done:** no Marketplace cards were added to the Dashboard. `resources/js/Pages/Dashboard.tsx` has
-no data-driven stats grid to extend — its cards come from the hardcoded `Components/section-cards.tsx`
-with placeholder figures, and the page still carries mock "recent sales" data. Wiring real Marketplace
-counts in means replacing that component and `DashboardController`'s payload, which belongs with the
-Phase 6 CMS strip rather than inside this one.
+## Dashboard, export and reporting (Phase 6)
+
+### Dashboard
+
+`DashboardController` renders `resources/js/Pages/Dashboard.tsx` from live Marketplace figures. Every
+panel is gated on the `<resource>.view` permission of the page it summarises and is sent as `null`
+when the Team Member cannot see it — a panel is omitted from the props, not hidden in the browser.
+
+- **Cards** — Scripts and AI Models as *released / total* (released = at least one Revision with
+  `status = released`, found with one `whereIn` against a `revisions` sub-select per type); active
+  Customers; UNYSIS Boxes by status from one grouped query; Downloads in the last 7 days with the
+  delta against the 7 before them.
+- **Downloads per day** — a 30-day Recharts area chart. This is the one figure that needs
+  `App\Support\DateBucket`, because bucketing a timestamp to `YYYY-MM-DD` is the single expression
+  that differs between SQLite (`strftime`) and PostgreSQL (`to_char`). Gaps are filled in PHP so every
+  day in the window has a point.
+- **Latest Revisions** — the last 10 uploads across both entry types, with status and uploader.
+- **Recently seen UNYSIS Boxes** — the last 10 by `last_seen_at`; a box that has never checked in has
+  no `last_seen_at` and is left out.
+
+### DownloadQuery — one filter builder
+
+`App\Support\DownloadQuery` holds the request parsing (`filters()`) and the query construction
+(`build()`) that the log index, its CSV export and the Usage report all share. Unknown filter values
+are dropped rather than passed through, so a hand-edited URL never reaches the builder.
+
+Every column in it is **table-qualified** (`downloads.created_at`, not `created_at`): the Usage report
+joins `unysis_boxes` and `users` onto the same builder and both carry a `created_at` of their own, so
+an unqualified predicate would be ambiguous on PostgreSQL.
+
+### Download CSV export
+
+`GET /admin/marketplace/downloads/export` (`downloads.view`) streams the **currently filtered** log
+through `response()->streamDownload`, chunked 500 rows at a time, as `downloads-YYYY-MM-DD.csv`.
+Columns: `downloaded_at`, `source`, `entry_type`, `entry_name`, `machine_model`, `machine_brand`,
+`revision_number`, `revision_status`, `customer_code`, `customer_company`, `unysis_box_uuid`,
+`unysis_box_name`, `user_name`, `user_email`, `ip`. The row set is unbounded, so nothing larger than
+one chunk is ever held in memory. The "Export CSV" button on the log page carries the active filters
+in its query string, so the file always matches what is on screen.
+
+### Usage report
+
+`ReportController` serves `GET /admin/marketplace/reports/usage` (page
+`resources/js/Pages/Marketplace/Reports/Usage.tsx`, `downloads.view`), with a date range — presets 7 /
+30 / 90 / 365 / all, default the last 30 days, overridable with an explicit `from`/`to` pair — and an
+optional entry-type filter.
+
+- **Totals strip** — downloads, Customers, UNYSIS Boxes and distinct entries, from one query.
+- **By Customer** — code, company, active boxes, boxes that downloaded in the range, downloads,
+  distinct entries downloaded, last download. Active boxes are a property of the Customer *today*, not
+  of the range, so they come from their own grouped query over `unysis_boxes`.
+- **By entry** — type, name, Machine Model and Brand, downloads, distinct Customers, distinct boxes,
+  and the highest released Revision number (one grouped query over `revisions`).
+
+Each table exports on its own at `GET /admin/marketplace/reports/usage/export?section=customers|entries`,
+with the same range in the query string.
+
+Attribution is the awkward part, as it is in the log: a Download carries no `customer_id`, so the
+report left-joins `unysis_boxes` and `users` and groups on
+`coalesce(unysis_boxes.customer_id, users.customer_id)`. Both joins are *left* joins — a Team Member's
+web download belongs to no Customer at all and must not vanish from the totals; those rows are
+reported under a "No Customer (internal)" row rather than dropped. `count(distinct ...)`, `||`
+concatenation and `coalesce` are all in the SQLite/PostgreSQL common subset, so no dialect switch is
+needed beyond `DateBucket` on the dashboard chart.
+
+`App\Support\DownloadPresenter::entryNames()` now also resolves each entry's Machine Model and Machine
+Brand, and accepts any row carrying `revisable_type`/`revisable_id` — Download rows, the report's
+grouped rows and the dashboard's Revision rows all pass through it unchanged.
+
+### Sidebar
+
+The Marketplace group gained **Usage Report** (`downloads.view`). The inherited **Content** group is
+gone with the CMS; the remaining groups are Platform (Dashboard), Marketplace and Administration
+(Vault, Users, Roles, Email Logs, Activity, Settings), each entry gated on its permission.
 
 ## Tests
 
@@ -607,15 +673,22 @@ Factories exist for all nine models.
   every filter (source, entry type, UNYSIS Box, Customer through both the box and the user, user, entry
   name across both entry types, date range), the summary figures, and a Download whose entry was hard
   deleted still appearing.
+- `DownloadExportTest` — 403 without the permission, the agreed header row, one fully joined data row
+  (entry, Machine Model and Brand, Revision number and status, Customer, box), and a filter narrowing
+  the file.
+- `UsageReportTest` — 403 without the permission on both the page and the export, per-Customer
+  aggregates with two Customers and a box each, the date range excluding older rows, the entries
+  section (distinct Customers, distinct boxes, latest released Revision), the entry-type filter, and
+  both section exports.
+
+`tests/Feature/DashboardTest.php` covers the dashboard payload: the card figures, the 7-day delta and
+the 30 filled chart buckets, the ten-row caps on both lists, and every panel coming back `null` for a
+Team Member without the matching permission.
 
 Tokens in these tests come from the real `POST /api/v1/login` rather than `Sanctum::actingAs`,
 because `ResolveUnysisBox` resolves the box from the token **name** and an acting-as transient token
 carries none. `ApiTestCase::asToken()` calls `forgetGuards()` first: the auth guard caches the
 resolved user for the life of the container, which survives between requests inside one test.
-
-## Remaining phases
-
-6. CMS strip (deferred) — possibly remove pages/banners/menus/llms/AI hub.
 
 ## See also
 

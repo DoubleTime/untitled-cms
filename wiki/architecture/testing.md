@@ -2,7 +2,7 @@
 
 > Test setup, conventions, and known gotchas.
 
-Last updated: 2026-09-21
+Last updated: 2026-09-23
 
 ## Running tests
 
@@ -15,10 +15,12 @@ php artisan test tests/Feature/VaultUploadTest.php
 
 ## Setup
 
-`phpunit.xml` sets `DB_CONNECTION=sqlite` and `DB_DATABASE=:memory:`. All 16 models are
+`phpunit.xml` sets `DB_CONNECTION=sqlite` and `DB_DATABASE=:memory:`. Every model is
 plain Eloquent with no pinned connection, so this is a real, working override: the whole
 suite runs against SQLite in-memory, no external database service required. Production
 runs PostgreSQL — see [architecture/datastore](datastore.md).
+
+The suite is **347 tests / 1316 assertions**, green on SQLite and on PostgreSQL.
 
 **Before this was true:** every model previously pinned `$connection = 'mongodb'`, so
 the SQLite override only ever changed the *default* connection and model queries still
@@ -39,20 +41,25 @@ is in place in the test class.
 ## Test coverage
 
 Tests in `tests/Feature/` cover:
-- Auth (login, logout, registration)
-- Maintenance mode
-- Profile management
+- Auth (login, logout, registration), profile management, maintenance mode
+- The dashboard (`DashboardTest`) — stat cards, chart buckets, permission gating of each panel
 - Vault upload, trash, and folder operations (incl. restore collisions, force-delete permissions, `folders.list?all=1`)
-- Vault policies (`PolicyTest`)
-- Menus (real `Edit.tsx` payload shape, dangerous URL schemes) and Banners controllers
-- AI chat (mocked `AiService`)
-- Public pages as HTML/Markdown and draft preview permissions
+- Vault policies (`PolicyTest`) and the image optimization job
+- Marketplace controllers (`tests/Feature/Marketplace/`): Customers, Customer Users, Machine
+  Brands/Models, Scripts (+ Preview Images), AI Models, Revisions, UNYSIS Boxes, Downloads,
+  the CSV export (`DownloadExportTest`), the Usage report (`UsageReportTest`), permissions
+  and schema
+- The RPA-TOOL API (`tests/Feature/Api/`)
+- Email webhooks and seeders
 
-`tests/Unit/` covers `AiHttpClient`.
+`tests/Unit/` covers the schema and `UnysisBoxService`.
+
+**Removed with the CMS strip:** `AiActionTest`, `AiChatTest`, `BannerControllerTest`,
+`MenuControllerTest`, `PageControllerTest`, `PublicPageMarkdownTest`, `Unit/AiHttpClientTest`,
+`Unit/SafeHttpClientTest` — the code they covered no longer exists.
 
 Currently missing coverage (investigate):
-- AI Hub provider integrations (real HTTP paths)
-- Redirect middleware
+- The email provider webhook adapters beyond the happy path
 
 ## CI
 
@@ -78,3 +85,4 @@ that couldn't be written in a dialect-neutral way.
 - [architecture/datastore](datastore.md) — PostgreSQL migration, schema, `DateBucket`
 - [database/collections](../database/collections.md) — table conventions
 - [modules/vault](../modules/vault.md) — what VaultUploadTest is testing
+- [modules/marketplace](../modules/marketplace.md) — what the Marketplace tests exercise

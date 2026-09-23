@@ -2,7 +2,7 @@
 
 > Technology choices and key design decisions.
 
-Last updated: 2026-09-21
+Last updated: 2026-09-23
 
 ## Stack
 
@@ -11,10 +11,11 @@ Last updated: 2026-09-21
 | Backend | Laravel 13, PHP **8.4+** |
 | Database | PostgreSQL (production), SQLite in-memory (tests) — see [architecture/datastore](datastore.md) |
 | Frontend | React 19 + TypeScript, Inertia.js |
-| Rich text | TinyMCE 7 (admin pages/banners) |
 | Styling | Tailwind CSS v4, Shadcn/Radix UI |
 | Build | Vite 8 (Node 22.12+) |
-| Auth | Laravel Sanctum + Sessions |
+| Auth | Laravel Sanctum + Sessions (web); Sanctum personal access tokens (RPA-TOOL API) |
+| Mail | Resend (`resend/resend-laravel`), with Mailgun/SendGrid webhook adapters |
+| File storage | Local `public` disk for the Vault, private `marketplace` disk for Revision files |
 
 ## Key design decisions
 
@@ -26,24 +27,31 @@ keeps controllers readable.
 pass through a sequence of discrete pipe classes. Each pipe does one thing and passes
 a typed DTO to the next. Easy to add, remove, or reorder stages. See [modules/vault](../modules/vault.md).
 
-**PostgreSQL, plain Eloquent.** All 16 models are plain Eloquent models with ULID
+**PostgreSQL, plain Eloquent.** Every model is a plain Eloquent model with ULID
 primary keys (`App\Models\Concerns\HasUlidKey`). Production runs PostgreSQL; tests run
 SQLite in-memory. MongoDB was removed after the migration documented in
 [architecture/datastore](datastore.md); see [architecture/mongodb](mongodb.md) for the
 historical record of why it was chosen and why it was dropped.
 
-**AI config at runtime.** AI provider keys and settings are stored in the database and
-managed via the admin UI, not in `.env` or config files. See [modules/ai-hub](../modules/ai-hub.md).
+**Immutable Revisions.** Catalogue entries (Scripts, AI Models) never change their uploaded
+file in place — each upload is a new, sequentially numbered Revision walking a one-way
+`draft -> released -> deprecated` lifecycle, with its own checksum. See
+[modules/marketplace](../modules/marketplace.md).
 
-**Two-tier outbound HTTP.** Untrusted URLs use `SafeHttpClient` (SSRF-safe); hub provider
-APIs use `AiHttpClient`. See [modules/services](../modules/services.md).
+**Admin-only surface.** There is no public content surface; `/` redirects to the dashboard or
+the login page. The only non-admin entry points are the media endpoints, the email webhook /
+unsubscribe routes and the RPA-TOOL API.
+
+**API is the box, not the user.** RPA-TOOL tokens are named after the UNYSIS Box's motherboard
+UUID and resolved on every request, so blocking a box takes effect immediately rather than at
+token expiry. See [architecture/middleware](middleware.md).
 
 **Custom permission middleware + policy-first controllers.** The `can` middleware alias
 points to `CheckPermission`. Controllers should authorize via policies. See [modules/permissions](../modules/permissions.md).
 
-**Dual content format.** Public routes respond with HTML normally and with
-Markdown+YAML frontmatter when `Accept: text/markdown` is sent. This is the
-"AI-native" aspect of the CMS.
+**Dialect-neutral SQL.** Tests run SQLite, production runs PostgreSQL, and CI runs both.
+Raw SQL is written through the query builder; the one unavoidable difference lives in
+`App\Support\DateBucket`. See [architecture/testing](testing.md).
 
 ## See also
 
@@ -52,5 +60,6 @@ Markdown+YAML frontmatter when `Accept: text/markdown` is sent. This is the
 - [architecture/datastore](datastore.md) — PostgreSQL migration, ULID keys, schema layout
 - [architecture/mongodb](mongodb.md) — historical MongoDB decision and test gap
 - [modules/services](../modules/services.md) — service layer details
+- [modules/marketplace](../modules/marketplace.md) — catalogue, revisions, RPA-TOOL API
 - [frontend/ui-stack](../frontend/ui-stack.md) — React/Inertia frontend
 - [database/collections](../database/collections.md) — model and table conventions

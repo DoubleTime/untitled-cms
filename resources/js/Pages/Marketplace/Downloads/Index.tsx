@@ -12,7 +12,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/Components/ui/select';
-import { X } from 'lucide-react';
+import { Download as DownloadIcon, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useFlashToast } from '@/hooks/use-flash-toast';
 import DownloadLogTable, { entryRoute } from '@/Components/Marketplace/DownloadLogTable';
@@ -90,6 +90,13 @@ export default function Index({
 
     const isFiltered = Object.values(filters).some((value) => !!value);
 
+    // The export re-runs the same filter builder server-side, so it only needs the
+    // active filters echoed back into its query string.
+    const exportQuery = new URLSearchParams(
+        Object.entries(filters).filter(([, value]) => !!value) as [string, string][],
+    ).toString();
+    const exportUrl = route('admin.marketplace.downloads.export') + (exportQuery ? `?${exportQuery}` : '');
+
     const visibleBoxes = filters.customer_id
         ? unysisBoxes.filter((box) => box.customer_id === filters.customer_id)
         : unysisBoxes;
@@ -99,12 +106,22 @@ export default function Index({
             <Head title="Downloads" />
 
             <div className="flex flex-col gap-6">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Downloads</h1>
-                    <p className="text-muted-foreground">
-                        Every recorded fetch of a Revision file — from RPA-TOOL on an UNYSIS Box, and from Team
-                        Members in the admin. Download rows are never deleted.
-                    </p>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight">Downloads</h1>
+                        <p className="text-muted-foreground">
+                            Every recorded fetch of a Revision file — from RPA-TOOL on an UNYSIS Box, and from Team
+                            Members in the admin. Download rows are never deleted.
+                        </p>
+                    </div>
+                    <Button variant="outline" asChild>
+                        {/* A full page load, not an Inertia visit: the response is a streamed CSV.
+                            The current filters ride along so the file matches what is on screen. */}
+                        <a href={exportUrl}>
+                            <DownloadIcon className="mr-2 h-4 w-4" />
+                            Export CSV
+                        </a>
+                    </Button>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-4">

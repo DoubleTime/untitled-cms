@@ -2,7 +2,7 @@
 
 > React 19 + TypeScript + Inertia.js admin SPA patterns and conventions.
 
-Last updated: 2026-09-13
+Last updated: 2026-09-23
 
 ## Stack
 
@@ -17,11 +17,12 @@ Last updated: 2026-09-13
 | Concern | Library |
 |---------|---------|
 | Data grids | TanStack Table v9 — `useTable` with the shared `dataTableFeatures` and `DataTableColumnDef<T>` from `Components/Common/DataTable.tsx` |
-| Drag and drop | @dnd-kit (banners, vault) |
-| Charts | Recharts (dashboard analytics) |
+| Drag and drop | @dnd-kit (Vault, Script Preview Image ordering) |
+| Charts | Recharts (dashboard downloads chart, Usage report) |
 | Form validation | Zod |
 | Toast notifications | Sonner |
-| AI Chat UI | shadcn/ui chat primitives (`message`, `bubble`, `message-scroller`) |
+| File uploads | react-dropzone (Vault uploads, Revision uploads) |
+| Icons | lucide-react |
 
 ## Page structure
 
@@ -32,25 +33,41 @@ separate API calls — all data arrives with the page load.
 ```
 resources/js/Pages/
   Auth/
-  Dashboard.tsx
-  Pages/         ← content pages management
-  Vault/         ← media manager
+  Dashboard.tsx        ← stat cards, downloads chart, latest Revisions, recent Boxes
+  Marketplace/
+    Customers/ MachineBrands/ MachineModels/
+    Scripts/ AiModels/
+    UnysisBoxes/ Downloads/
+    Reports/Usage.tsx  ← date range, totals, by Customer, by entry
+  Vault/               ← media manager
   Users/
   Roles/
-  Banners/
-  Menus/
-  AiHub/
+  EmailLogs/
+  Activity/
   Settings/
-  ...
+  Profile/
+  Public/Unsubscribed.tsx
 ```
+
+Dashboard and report panels are **permission-gated server-side**: a panel the Team Member
+cannot see arrives as `null` in the props rather than being hidden in the component.
 
 ## Shared props (always available)
 
-Injected by `HandleInertiaRequests` middleware:
+Injected by `HandleInertiaRequests` middleware — this is the whole list:
+- `appName`, `appVersion` — shown in the sidebar header as `v{appVersion}`
 - `auth.user` — current user object
-- `permissions` — array of permission strings for the current user
-- `menus` — navigation menu data
-- `settings` — site-wide settings key/value
+- `auth.permissions` — array of permission strings for the current user
+- `auth.canAccessBackend` — boolean
+- `settings` — public settings key/value
+- `passwordRulesString` — human-readable password policy for auth forms
+- `flash.success`, `flash.error`
+
+## Sidebar
+
+`Components/app-sidebar.tsx` has three groups — **Platform** (Dashboard), **Marketplace**
+(catalogue, UNYSIS Boxes, Downloads, Usage Report) and **Administration** (Vault, Users,
+Roles, Email Logs, Activity, Settings). Every entry is gated on its own permission.
 
 ## Inertia patterns
 
@@ -66,9 +83,9 @@ There is no separate REST/GraphQL API consumed by the frontend. If you need data
 that isn't in the initial page props, add it to the controller's props or use a
 partial Inertia reload — not a fetch call.
 
-**Exception — Media Vault.** The Vault browser and `VaultPicker` call JSON endpoints
+**Exception — Media Vault.** The Vault browser and `Components/Vault/VaultPicker.tsx` call JSON endpoints
 under `admin/vault/*` with axios. Their state and handlers live in
-`resources/js/hooks/useVaultBrowser.ts`, with dialogs in `Components/Vault/`. Read error text
+`resources/js/hooks/useVaultBrowser.ts`, with dialogs and pickers in `Components/Vault/` (`VaultDialogs`, `VaultUploadDialog`, `VaultBreadcrumb`, `VaultThumbnail`, `UploadPipelineTracker`). Read error text
 from the response's `error`/`message` fields. See [modules/vault](../modules/vault.md#api-contracts).
 
 ## See also

@@ -39,16 +39,22 @@ behaviour carries over unchanged.
 
 The relational schema lives in `database/migrations/`, authored from scratch — there
 was no prior relational schema to migrate from; the old migration files were vestigial
-stubs that only created `id` + timestamps. It is grouped into five files by
+stubs that only created `id` + timestamps. It was grouped into five files by
 responsibility:
 
 | File | Covers |
 |------|--------|
-| `2026_09_21_000001_create_core_tables.php` | `users`, `roles`, `role_user`, `settings`, `ai_hubs` |
-| `2026_09_21_000002_create_content_tables.php` | `pages`, `banners`, `menus`, `redirects`, `chat_sessions` |
+| `2026_09_21_000001_create_core_tables.php` | `users`, `roles`, `role_user`, `settings` |
 | `2026_09_21_000003_create_vault_tables.php` | `vault_folders`, `vault_files`, `vault_folder_permissions` |
 | `2026_09_21_000004_create_log_tables.php` | `activity_logs`, `vault_audit_logs`, `email_logs`, `suppressed_emails` |
 | `2026_09_21_000005_create_framework_tables.php` | Laravel framework tables: `password_reset_tokens`, `sessions`, `cache`, `cache_locks`, `jobs`, `job_batches`, `failed_jobs` |
+| `2026_09_22_000001_create_marketplace_tables.php` | `customers`, `machine_brands`, `machine_models`, `scripts`, `script_images`, `ai_models`, `revisions`, `unysis_boxes`, `downloads`, and `users.customer_id` |
+| `2026_09_23_000001_create_personal_access_tokens_table.php` | Sanctum tokens for the RPA-TOOL API |
+
+The Phase 6 CMS strip deleted `2026_09_21_000002_create_content_tables.php` outright
+(`pages`, `banners`, `menus`, `redirects`, `chat_sessions`) and cut `ai_hubs` out of the core
+file. Nothing was deployed at that point, so the migrations were edited in place rather than
+given drop migrations — see [modules/marketplace](../modules/marketplace.md).
 
 ## No foreign-key constraints
 

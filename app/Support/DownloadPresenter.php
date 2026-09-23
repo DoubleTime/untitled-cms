@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\AiModel;
 use App\Models\Download;
 use App\Models\Script;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
 /**
@@ -19,9 +20,13 @@ use Illuminate\Support\Collection;
 class DownloadPresenter
 {
     /**
-     * Entry names for a set of Download rows, keyed `"{morph alias}:{id}"`.
+     * Entry names — with the Machine Model and Brand the entry targets — for a set
+     * of Download rows, keyed `"{morph alias}:{id}"`.
      *
-     * @param  Collection<int, Download>  $downloads
+     * Any row carrying `revisable_type` and `revisable_id` works — Download rows,
+     * grouped report rows, and Revision rows all pass through unchanged.
+     *
+     * @param  Collection<int, Model>  $downloads
      * @return array<string, array<string, mixed>>
      */
     public static function entryNames(Collection $downloads): array
@@ -29,7 +34,7 @@ class DownloadPresenter
         $out = [];
 
         $byType = $downloads
-            ->groupBy(fn (Download $download) => (string) $download->revisable_type)
+            ->groupBy(fn ($row) => (string) $row->revisable_type)
             ->map(fn (Collection $group) => $group->pluck('revisable_id')->unique()->values()->all());
 
         foreach ($byType as $type => $ids) {
@@ -43,10 +48,17 @@ class DownloadPresenter
                 continue;
             }
 
-            foreach ($model::withTrashed()->whereIn('id', $ids)->get(['id', 'name', 'deleted_at']) as $entry) {
+            $entries = $model::withTrashed()
+                ->with('machineModel.machineBrand')
+                ->whereIn('id', $ids)
+                ->get(['id', 'name', 'machine_model_id', 'deleted_at']);
+
+            foreach ($entries as $entry) {
                 $out[$type.':'.$entry->getKey()] = [
                     'name' => $entry->name,
                     'deleted' => $entry->deleted_at !== null,
+                    'machine_model' => $entry->machineModel?->name,
+                    'machine_brand' => $entry->machineModel?->machineBrand?->name,
                 ];
             }
         }

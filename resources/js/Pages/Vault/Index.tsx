@@ -41,7 +41,6 @@ import {
     Zap,
     Info,
     FileIcon,
-    Wand2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -106,19 +105,6 @@ export default function VaultIndex({
                         >
                             <Upload className="h-4 w-4" />
                             Upload Files
-                        </Button>
-                        <Button
-                            onClick={() => {
-                                vault.setIsImageGenOpen(true);
-                                vault.setGeneratedImageUrl(null);
-                                vault.setImageGenPrompt('');
-                            }}
-                            variant="outline"
-                            size="sm"
-                            className="gap-2 border-primary/30 text-primary hover:bg-primary/5"
-                        >
-                            <Wand2 className="h-4 w-4" />
-                            AI Generate Image
                         </Button>
                     </div>
 
@@ -633,29 +619,6 @@ export default function VaultIndex({
                                                     <div className="flex gap-2">
                                                         <Button
                                                             size="sm"
-                                                            variant="outline"
-                                                            className="flex-1 h-7 text-xs"
-                                                            disabled={vault.isGeneratingAlt}
-                                                            onClick={() =>
-                                                                vault.handleGenerateAltText(
-                                                                    vault.selectedFiles[0].uuid,
-                                                                )
-                                                            }
-                                                        >
-                                                            {vault.isGeneratingAlt ? (
-                                                                <>
-                                                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                                                    Generating...
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <Sparkles className="mr-1 h-3 w-3" />
-                                                                    AI Generate
-                                                                </>
-                                                            )}
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
                                                             className="flex-1 h-7 text-xs"
                                                             disabled={
                                                                 !(
@@ -989,15 +952,6 @@ export default function VaultIndex({
                 moveTarget={vault.moveTarget}
                 setMoveTarget={vault.setMoveTarget}
                 handleMove={vault.handleMove}
-                isImageGenOpen={vault.isImageGenOpen}
-                setIsImageGenOpen={vault.setIsImageGenOpen}
-                imageGenPrompt={vault.imageGenPrompt}
-                setImageGenPrompt={vault.setImageGenPrompt}
-                isGeneratingImage={vault.isGeneratingImage}
-                isSavingImage={vault.isSavingImage}
-                generatedImageUrl={vault.generatedImageUrl}
-                setGeneratedImageUrl={vault.setGeneratedImageUrl}
-                handleGenerateImage={vault.handleGenerateImage}
             />
         </AuthenticatedLayout>
     );

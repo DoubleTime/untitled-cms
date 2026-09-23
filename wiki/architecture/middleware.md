@@ -2,25 +2,27 @@
 
 > Web and API middleware stacks, rate limiters, and what each layer does.
 
-Last updated: 2026-09-22
+Last updated: 2026-09-23
 
 ## Web middleware stack (in order)
 
-1. **`HandleInertiaRequests`** — shares `auth`, `permissions`, `menus`, `settings`
-   as Inertia props on every page load. If a shared prop is missing on the frontend,
-   this is the first place to look.
+Appended to the `web` group in `bootstrap/app.php`:
+
+1. **`HandleInertiaRequests`** — shares `appName`, `appVersion`, `auth` (user, permissions,
+   backend access), `settings`, `passwordRulesString` and `flash` as Inertia props on every
+   page load. If a shared prop is missing on the frontend, this is the first place to look.
+   See [frontend/ui-stack](../frontend/ui-stack.md).
 
 2. **`AddLinkHeadersForPreloadedAssets`** — adds `Link: <url>; rel=preload` headers
    for critical assets. Performance optimization.
 
-3. **`CheckRedirects`** — database-driven URL redirects. Looks up the request path
-   in the `redirects` collection and issues a redirect if found. Runs early so
-   redirects take effect before page logic.
+3. **`CheckMaintenanceMode`** — custom maintenance mode. Aborts with 503 for regular users
+   but lets privileged roles through. This is **not** Laravel's built-in maintenance mode —
+   it's a custom implementation that reads the `settings` table and the current user's role.
 
-4. **`CheckMaintenanceMode`** — custom maintenance mode. Serves a maintenance page
-   to regular users but lets admins through. This is **not** Laravel's built-in
-   maintenance mode — it's a custom implementation that checks the `settings`
-   collection and the current user's role.
+4. **`VerifySessionVersion`** — compares the `session_version` stored in the session against
+   the user's DB value and logs the user out on mismatch. This is what makes "logout all
+   devices" take effect immediately on every open session.
 
 ## API middleware stack (`/api/*`)
 
@@ -63,9 +65,18 @@ Routes requiring authentication use:
 The `can` middleware alias maps to `CheckPermission` (custom), not Laravel's built-in.
 Usage: `->middleware('can:resource.action')`. See [modules/permissions](../modules/permissions.md).
 
+## Middleware aliases
+
+| Alias | Class |
+|---|---|
+| `can` | `App\Http\Middleware\CheckPermission` (custom — not Laravel's built-in) |
+| `admin` | `App\Http\Middleware\RequireAdminAccess` |
+| `webhook.email` | `App\Http\Middleware\VerifyEmailWebhook` |
+| `unysis-box` | `App\Http\Middleware\ResolveUnysisBox` |
+
 ## Webhook middleware
 
-`resend.webhook` alias → `VerifyResendWebhook`. Applied only to `POST /webhooks/resend`.
+`webhook.email` alias → `VerifyEmailWebhook`. Applied only to `POST /webhooks/email`.
 Verifies Svix/Standard Webhooks v1 HMAC-SHA256 signatures and rejects requests whose
 timestamp deviates more than 5 minutes in either direction. CSRF is exempted for this
 route in `bootstrap/app.php`. See [modules/email](../modules/email.md) for full detail.
@@ -80,9 +91,8 @@ register it explicitly there.
 
 ## Rate limiting
 
-AI endpoints are rate-limited at the route level, not via middleware:
-- Text generation: 30 requests/minute
-- Image generation: 10 requests/minute
+Admin routes that are cheap to abuse are throttled at the route level (e.g. user batch
+actions at `throttle:10,1`, public media at `throttle:1000,1`).
 
 The RPA-TOOL API uses **named** limiters, registered in `AppServiceProvider`:
 
@@ -99,8 +109,9 @@ the token is the box, so the token id is the right bucket.
 
 - `CheckMaintenanceMode` reads from `settings` — if `SettingsService` cache is
   warm with stale data, maintenance mode changes may not take effect immediately.
-- `CheckRedirects` runs on every request — keep the `redirects` collection indexed
-  on the path field for performance.
+- `VerifySessionVersion` reads the user row on every authenticated web request; it is
+  deliberately on the web group only, so API tokens are revoked through the box/token path
+  instead (see `ResolveUnysisBox` above).
 
 ## See also
 

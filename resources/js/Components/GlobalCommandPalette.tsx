@@ -15,7 +15,6 @@ import { router } from "@inertiajs/react";
 import {
     Calculator,
     Calendar,
-    CreditCard,
     Settings,
     Smile,
     User
@@ -64,11 +63,6 @@ export function GlobalCommandPalette() {
                         <User className="mr-2 h-4 w-4" />
                         <span>Profile</span>
                         <CommandShortcut>⌘P</CommandShortcut>
-                    </CommandItem>
-                    <CommandItem onSelect={() => runCommand(() => router.visit(route('billing.index')))}>
-                        <CreditCard className="mr-2 h-4 w-4" />
-                        <span>Billing</span>
-                        <CommandShortcut>⌘B</CommandShortcut>
                     </CommandItem>
                     <CommandItem onSelect={() => runCommand(() => router.visit(route('admin.settings.index')))}>
                         <Settings className="mr-2 h-4 w-4" />

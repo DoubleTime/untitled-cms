@@ -6,11 +6,9 @@ use App\Http\Requests\BatchMoveVaultFilesRequest;
 use App\Http\Requests\BatchVaultUuidsRequest;
 use App\Http\Requests\MoveVaultFileRequest;
 use App\Http\Requests\RenameVaultFileRequest;
-use App\Http\Requests\SaveAiImageRequest;
 use App\Http\Requests\ToggleVaultOptimizationRequest;
 use App\Http\Requests\UpdateVaultAltTextRequest;
 use App\Http\Requests\UploadVaultFileRequest;
-use App\Jobs\GenerateMissingAltTextJob;
 use App\Models\VaultFile;
 use App\Models\VaultFolder;
 use App\Services\VaultService;
@@ -103,32 +101,6 @@ class VaultController extends Controller
             'uploaded' => $uploadedFiles,
             'errors' => $errors,
         ]);
-    }
-
-    public function saveAiImage(SaveAiImageRequest $request)
-    {
-        $targetFolder = null;
-        if ($request->input('folder_id')) {
-            $targetFolder = VaultFolder::findOrFail($request->input('folder_id'));
-            $this->authorize('create', [VaultFile::class, $targetFolder]);
-        }
-
-        $uploadedFile = null;
-
-        try {
-            $uploadedFile = $request->getPreparedUploadedFile();
-
-            $vaultFile = $this->vaultService->upload($uploadedFile, $request->input('folder_id'), $targetFolder);
-
-            return response()->json(['file' => $vaultFile], 201);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 422);
-        } finally {
-            // Remove the temp file even when the upload pipeline rejects it
-            if ($uploadedFile && is_file($uploadedFile->getPathname())) {
-                @unlink($uploadedFile->getPathname());
-            }
-        }
     }
 
     public function serve(string $uuid)
@@ -357,17 +329,6 @@ class VaultController extends Controller
         return response()->json([
             'message' => "Successfully deleted {$deletedCount} item(s).",
             'deleted_count' => $deletedCount,
-        ]);
-    }
-
-    public function generateMissingAltText()
-    {
-        $this->authorize('updateAny', VaultFile::class);
-
-        GenerateMissingAltTextJob::dispatch();
-
-        return response()->json([
-            'message' => 'Alt-text generation job dispatched successfully. Images will be updated in the background.',
         ]);
     }
 

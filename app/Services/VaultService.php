@@ -10,7 +10,6 @@ use App\Models\VaultFolder;
 use App\Vault\DTOs\VaultPipelinePayload;
 use App\Vault\Pipes\DetectDoubleExtension;
 use App\Vault\Pipes\GenerateUuid;
-use App\Vault\Pipes\ModerationCheck;
 use App\Vault\Pipes\SandboxedScan;
 use App\Vault\Pipes\SanitizeImage;
 use App\Vault\Pipes\StoreMetadata;
@@ -32,7 +31,6 @@ class VaultService
             DetectDoubleExtension::class,
             ValidateMimeType::class,
             SanitizeImage::class,
-            ModerationCheck::class,
             GenerateUuid::class,
             StoreMetadata::class,
         ];

@@ -10,7 +10,7 @@ interface Props {
 export default function Unsubscribed({ email, error }: Props) {
     return (
         <div className="min-h-screen bg-[#0f172a] relative overflow-hidden flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            <Head title="Unsubscribed - CMS" />
+            <Head title="Unsubscribed" />
             
             {/* Background Aesthetic Orbs */}
             <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none" />
